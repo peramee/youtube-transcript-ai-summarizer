@@ -1,4 +1,4 @@
-# YouTube Brief
+# YouTube transcript AI summarizer: YouTube Brief
 
 A local Chrome extension that summarizes the current YouTube video from its transcript using your OpenAI API key. Plain JavaScript, a spacious reading panel beside the video, and no server or build step.
 
@@ -97,7 +97,7 @@ See [validation results](docs/TESTING.md) for coverage and live verification lim
 ## Reference documentation
 
 - [OpenAI text generation and response output](https://developers.openai.com/api/docs/guides/text)
-- [GPT-4.1 mini](https://developers.openai.com/api/docs/models/gpt-4.1-mini)
+- [OpenAI models](https://developers.openai.com/api/docs/models)
 - [Chrome storage and trusted-context access](https://developer.chrome.com/docs/extensions/reference/api/storage)
 - [Chrome service worker lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)
 - [Playwright extension testing](https://playwright.dev/docs/chrome-extensions)
