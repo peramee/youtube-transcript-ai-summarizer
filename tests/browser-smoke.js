@@ -82,7 +82,20 @@ try {
   console.log("PASS: missing key produces an actionable error without an API call");
 
   const options = await context.newPage();
+  options.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
   await options.goto(`chrome-extension://${extensionId}/options.html`);
+  const modelField = options.getByLabel("Model", { exact: true });
+  await modelField.evaluate(node => new RegExp(node.pattern, "v"));
+  for (const name of ["gpt-4.1-mini", "ft:gpt-4.1-mini:org:custom_model:abc123"]) {
+    await modelField.fill(name);
+    assert.equal(await modelField.evaluate(node => node.checkValidity()), true, name);
+  }
+  for (const name of ["", "model name", "model/name", "model@name", "model\\name"]) {
+    await modelField.fill(name);
+    assert.equal(await modelField.evaluate(node => node.checkValidity()), false, name);
+  }
+  await modelField.fill("gpt-4.1-mini");
+  console.log("PASS: model pattern compiles in Chrome and validates allowed characters");
   await options.getByLabel("OpenAI API key").fill("sk-browser-test-fixture");
   await options.getByRole("button", { name: "Save settings" }).click();
   await options.getByText("Saved. You’re ready to summarize on YouTube.").waitFor();
