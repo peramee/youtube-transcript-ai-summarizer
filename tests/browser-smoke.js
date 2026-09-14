@@ -104,11 +104,11 @@ try {
   assert.equal(await worker.evaluate(() => testCalls[0].body.instructions), customPrompt);
   const largePanel = await page.getByRole("region", { name: "Video summary" }).boundingBox();
   const dockedVideo = await page.locator("#movie_player").boundingBox();
-  assert.ok(largePanel.width > 750 && largePanel.height > 700);
+  assert.ok(Math.abs(largePanel.width - 1280 / 3) < 1 && largePanel.height > 700);
   assert.ok(dockedVideo.x + dockedVideo.width < largePanel.x, "Video stays beside the summary");
   await page.getByRole("button", { name: "Close summary" }).click();
   assert.equal(await page.evaluate(() => document.documentElement.classList.contains("youtube-brief-reading")), false);
-  assert.ok((await page.locator("#movie_player").boundingBox()).width > dockedVideo.width);
+  assert.notEqual(await page.locator("#movie_player").evaluate(node => getComputedStyle(node).position), "fixed");
   await page.getByRole("button", { name: "Video summary", exact: true }).click();
   assert.equal(await worker.evaluate(() => testCalls.length), 1);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "https://www.youtube.com" });

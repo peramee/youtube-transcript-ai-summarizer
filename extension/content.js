@@ -13,7 +13,7 @@
       :focus-visible { outline: 3px solid #86a790; outline-offset: 3px; }
       .launch { display: flex; align-items: center; gap: 10px; background: #264e36; color: #fff; border: 1px solid #608069; border-radius: 30px; padding: 13px 19px; font-size: 13px; font-weight: 650; box-shadow: 0 4px 20px #0003; margin-left: auto; }
       .spark { font-size: 18px; font-weight: 400; }
-      .panel { display: flex; flex-direction: column; position: fixed; top: 24px; right: 24px; bottom: 90px; width: calc(64vw - 24px); background: #f8f9f5; border: 1px solid #d3dbd0; border-radius: 16px; box-shadow: 0 12px 48px #0003; overflow: hidden; color: #202822; }
+      .panel { display: flex; flex-direction: column; position: fixed; top: 24px; right: 24px; bottom: 90px; width: calc(100vw / 3); background: #f8f9f5; border: 1px solid #d3dbd0; border-radius: 16px; box-shadow: 0 12px 48px #0003; overflow: hidden; color: #202822; }
       header { flex-shrink: 0; display: flex; justify-content: space-between; align-items: center; padding: 19px 20px 13px; }
       .brand { font-size: 10px; letter-spacing: 1.8px; font-weight: 750; color: #526c58; }
       .close { border-radius: 6px; padding: 2px 7px; background: transparent; color: #626d64; font-size: 22px; line-height: 1; }

@@ -20,7 +20,7 @@ No `npm install`, compilation, YouTube API key, or Google sign-in is required to
 
 ## Use
 
-The panel fills about two-thirds of the tab and nearly its full height, with the video docked on the left. Narrow windows place the video above the summary. Closing the panel restores the original player layout.
+The panel fills about one-third of the tab and nearly its full height, with the video docked on the left. Narrow windows place the video above the summary. Closing the panel restores the original player layout.
 
 By default, the panel shows an overview, key points, and a takeaway in English. **Copy summary** copies plain text. Closing and reopening the panel reuses the summary without another request. Switching videos clears it; refreshing the page lets you generate a new summary.
 
