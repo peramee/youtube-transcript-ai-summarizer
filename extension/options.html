@@ -19,6 +19,10 @@
       <label for="model">Model</label>
       <input id="model" value="gpt-4.1-mini" required pattern="[A-Za-z0-9._:-]+" maxlength="100" spellcheck="false">
       <p class="hint">Use a text model that supports the OpenAI Responses API.</p>
+      <label for="system-prompt">System prompt</label>
+      <textarea id="system-prompt" rows="9" maxlength="20000" aria-describedby="prompt-help" spellcheck="true"></textarea>
+      <p id="prompt-help" class="hint">Describe your preferred focus, language, format, tone, and level of detail. This replaces the default instructions. Up to 20,000 characters; blank uses the default. The transcript is supplied separately. Summaries display as plain text.</p>
+      <button type="button" id="reset-prompt" class="secondary">Restore default prompt</button>
       <div class="actions"><button type="submit">Save settings</button><button type="button" id="forget" class="secondary">Remove key</button></div>
       <p id="status" role="status" aria-live="polite"></p>
     </form>

@@ -1,7 +1,9 @@
-import { DEFAULT_MODEL } from "./core.js";
+import { DEFAULT_MODEL, DEFAULT_SYSTEM_PROMPT } from "./core.js";
 
 const keyInput = document.getElementById("api-key");
 const modelInput = document.getElementById("model");
+const promptInput = document.getElementById("system-prompt");
+const resetPrompt = document.getElementById("reset-prompt");
 const status = document.getElementById("status");
 const forget = document.getElementById("forget");
 const form = document.getElementById("settings");
@@ -20,8 +22,9 @@ save.disabled = true;
 forget.disabled = true;
 try {
   await chrome.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" });
-  const settings = await chrome.storage.local.get(["apiKey", "model"]);
+  const settings = await chrome.storage.local.get(["apiKey", "model", "systemPrompt"]);
   modelInput.value = settings.model || DEFAULT_MODEL;
+  promptInput.value = settings.systemPrompt || DEFAULT_SYSTEM_PROMPT;
   savedState(Boolean(settings.apiKey));
   save.disabled = false;
 } catch { show("Could not load settings. Reopen the extension and try again.", true); }
@@ -34,10 +37,9 @@ form.addEventListener("submit", async event => {
   save.disabled = true;
   try {
     const existing = await chrome.storage.local.get("apiKey");
-    if (!apiKey && !existing.apiKey) return show("Enter an OpenAI API key first.", true);
-    await chrome.storage.local.set({ model, ...(apiKey ? { apiKey } : {}) });
-    savedState(true);
-    show("Saved. You’re ready to summarize on YouTube.");
+    await chrome.storage.local.set({ model, systemPrompt: promptInput.value.trim(), ...(apiKey ? { apiKey } : {}) });
+    savedState(Boolean(apiKey || existing.apiKey));
+    show(apiKey || existing.apiKey ? "Saved. You’re ready to summarize on YouTube." : "Settings saved. Add an API key before summarizing.");
   } catch { show("Could not save settings. Try again.", true); }
   finally { save.disabled = false; }
 });
@@ -47,4 +49,9 @@ forget.addEventListener("click", async () => {
     savedState(false);
     show("API key removed from this browser.");
   } catch { show("Could not remove the key. Try again.", true); }
+});
+
+resetPrompt.addEventListener("click", () => {
+  promptInput.value = DEFAULT_SYSTEM_PROMPT;
+  show("Default prompt restored. Click Save settings to apply it.");
 });

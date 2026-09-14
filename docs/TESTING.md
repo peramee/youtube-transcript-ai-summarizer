@@ -4,7 +4,7 @@ Verified on Windows on September 14, 2026, using Node.js 24.15.0 and Playwright 
 
 ## Automated checks
 
-- **21 unit tests passed:** URL validation, transcript identity/size/emptiness, source/instruction separation, response parsing, refusals, incomplete outputs, HTTP errors, quota, network failures, timeouts, signed-caption URL restrictions, Unicode, timestamps, language ranking, native fallback, and navigation during extraction.
+- **23 unit tests passed:** URL validation, transcript identity/size/emptiness, source/instruction separation, response parsing, refusals, incomplete outputs, HTTP errors, quota, network failures, timeouts, signed-caption URL restrictions, Unicode, timestamps, language ranking, native fallback, and navigation during extraction.
 - **Browser integration checks passed:** a real unpacked extension runs its content script, service worker, injected main-world extractor, settings page, and clipboard action.
 - **Manifest and JavaScript checks passed.**
 - **Git whitespace check passed.**
@@ -53,3 +53,9 @@ A live OpenAI completion was not performed because no API key was supplied.
 6. Remove the API key when finished if you do not want it kept in the browser.
 
 The summary panel and settings page were visually inspected from browser screenshots. The README preview is a test fixture with simulated summary text.
+
+## Reading view and custom prompts (v1.1)
+
+Added checks for custom instructions replacing the default, blank-prompt fallback, oversized prompts, settings persistence after reopening, restoring defaults, and regenerating with the latest saved instructions. Desktop and narrow-window geometry checks verify that the video and summary do not overlap, and closing restores the normal player layout. The reading view was also inspected on a live YouTube watch page without an OpenAI request.
+
+The clean live browser profile showed YouTube’s cookie-consent overlay. Player and panel geometry and layout restoration were checked there; playback interaction under that overlay was not validated.

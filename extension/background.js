@@ -25,7 +25,7 @@ async function handle(message, sender) {
   const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo().catch(() => {}), 20_000);
   try {
     await storageReady;
-    const settings = await chrome.storage.local.get(["apiKey", "model"]);
+    const settings = await chrome.storage.local.get(["apiKey", "model", "systemPrompt"]);
     if (!settings.apiKey) throw new Error("Add your OpenAI API key in Settings, then try again.");
     const results = await chrome.scripting.executeScript({
       target: { tabId, frameIds: [0] }, world: "MAIN", func: extractTranscript, args: [videoId]

@@ -65,3 +65,18 @@ test("handles network, timeout, and non-JSON responses", async () => {
   await assert.rejects(summarize(transcript, {}, async () => new Response("Bad gateway", { status: 502 })), /temporarily/);
   await assert.rejects(summarize(transcript, {}, async () => new Response("invalid")), /unreadable/);
 });
+
+test("custom system prompt replaces default style instructions", () => {
+  const prompt = "Summarize in Finnish, in ten numbered points with practical examples.";
+  assert.equal(makeRequest(transcript, undefined, prompt).instructions, prompt);
+  assert.equal(makeRequest(transcript, undefined, "  ").instructions, makeRequest(transcript).instructions);
+  assert.throws(() => makeRequest(transcript, undefined, "x".repeat(20001)), /system prompt exceeds/);
+});
+test("saved custom prompt reaches the OpenAI instructions field", async () => {
+  await summarize(transcript, { apiKey: "sk-fixture", systemPrompt: "Write a short poem." }, async (url, options) => {
+    const body = JSON.parse(options.body);
+    assert.equal(body.instructions, "Write a short poem.");
+    assert.ok(!body.input.includes("Write a short poem."));
+    return Response.json(completed("A poem"));
+  });
+});

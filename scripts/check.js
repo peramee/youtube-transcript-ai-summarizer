@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const manifest = JSON.parse(await readFile("extension/manifest.json", "utf8"));
 assert.equal(manifest.manifest_version, 3);
 assert.deepEqual(manifest.permissions.sort(), ["scripting", "storage"]);
-for (const file of [manifest.background.service_worker, manifest.action.default_popup, manifest.options_page, ...manifest.content_scripts.flatMap(script => script.js)]) await access(`extension/${file}`);
+for (const file of [manifest.background.service_worker, manifest.action.default_popup, manifest.options_page, ...manifest.content_scripts.flatMap(script => [...script.js, ...(script.css ?? [])])]) await access(`extension/${file}`);
 for (const directory of ["extension", "scripts", "tests"]) {
   for (const file of await readdir(directory)) {
     if (!file.endsWith(".js")) continue;

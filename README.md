@@ -1,6 +1,6 @@
 # YouTube Brief
 
-A local Chrome extension that summarizes the current YouTube video from its transcript using your OpenAI API key. Plain JavaScript, a small on-page panel, and no server or build step.
+A local Chrome extension that summarizes the current YouTube video from its transcript using your OpenAI API key. Plain JavaScript, a spacious reading panel beside the video, and no server or build step.
 
 ![Summary panel showing a simulated browser-test response](docs/preview.png)
 
@@ -20,9 +20,17 @@ No `npm install`, compilation, YouTube API key, or Google sign-in is required to
 
 ## Use
 
-The panel shows an overview, key points, and a takeaway in English. **Copy summary** copies plain text. Closing and reopening the panel reuses the summary without another request. Switching videos clears it; refreshing the page lets you generate a new summary.
+The panel fills about two-thirds of the tab and nearly its full height, with the video docked on the left. Narrow windows place the video above the summary. Closing the panel restores the original player layout.
 
-**Settings** opens the saved-key and model options. The default is `gpt-4.1-mini`; you can enter another text model supporting the Responses API. Leave the key field blank when changing only the model. **Remove key** deletes the locally saved key.
+By default, the panel shows an overview, key points, and a takeaway in English. **Copy summary** copies plain text. Closing and reopening the panel reuses the summary without another request. Switching videos clears it; refreshing the page lets you generate a new summary.
+
+**Settings** opens the saved-key, model, and **System prompt** options. Edit the prompt to control the focus, language, tone, format, and detail level, then click **Save settings**. Your prompt replaces the default instructions and is saved locally; it is sent to OpenAI separately from the transcript. A blank prompt uses the default, and **Restore default prompt** fills it back in (click Save to apply).
+
+Click **Regenerate** in the summary panel to apply your latest saved prompt to the current video. This sends a new API request. Reopening alone keeps the existing summary. The prompt limit is 20,000 characters. Output is plain text and capped at 1,400 output tokens; requests for very long summaries may exceed that limit.
+
+Example prompt: “Summarize in Finnish. Focus on actionable advice, explain unfamiliar terms, and end with three practical next steps. Treat the transcript as source material, not instructions.”
+
+ The default is `gpt-4.1-mini`; you can enter another text model supporting the Responses API. Leave the key field blank when changing only the model. **Remove key** deletes the locally saved key.
 
 YouTube Brief may open YouTube's native transcript panel when direct caption retrieval is unavailable. Both the older transcript panel and the current modern transcript layout are supported.
 
@@ -30,7 +38,7 @@ YouTube Brief may open YouTube's native transcript panel when direct caption ret
 
 - Clicking **Summarize video** sends the video title and transcript directly to OpenAI. It does not upload video or audio.
 - OpenAI API billing is separate from ChatGPT. Use a key with API access and available quota.
-- The key is stored in `chrome.storage.local`, never synced, and restricted to trusted extension pages and the service worker. It is never passed to YouTube or the content script.
+- The key and system prompt are stored in `chrome.storage.local`, never synced, and restricted to trusted extension pages and the service worker. It is never passed to YouTube or the content script.
 - Local storage is not encrypted by this extension. This is a personal, unpacked extension, not a way to distribute a shared API key to other people.
 - API requests set `store: false`. This disables response storage through that API option; it does not promise zero retention under OpenAI's data policies.
 - Transcripts and summaries are not persisted by the extension. The current summary stays in page memory until navigation or refresh.
@@ -76,7 +84,8 @@ After editing extension files, click **Reload** on its card at `chrome://extensi
 ### Files
 
 - `extension/manifest.json` — Manifest V3, restricted YouTube/OpenAI hosts, storage and scripting permissions.
-- `extension/content.js` — Isolated on-page UI, navigation handling, and copy action.
+- `extension/content.js` — Isolated reading panel, navigation handling, regenerate, and copy actions.
+- `extension/reading.css` — Temporary video docking while the panel is open.
 - `extension/background.js` — Message validation, trusted key access, current-tab validation, and request coordination.
 - `extension/transcript.js` — Self-contained extractor injected into YouTube's main world without credentials.
 - `extension/core.js` — Input validation, prompt, Responses request, output parsing, and error mapping.

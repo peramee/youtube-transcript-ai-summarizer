@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdir, mkdtemp } from "node:fs/promises";
 import path from "node:path";
 import { chromium } from "playwright";
+import { DEFAULT_SYSTEM_PROMPT } from "../extension/core.js";
 
 await mkdir("test-results", { recursive: true });
 const profile = await mkdtemp(path.resolve("test-results/profile-"));
@@ -16,7 +17,7 @@ let captionMode = "json";
 let modernTranscript = false;
 const firstId = "abcdefghijk";
 const summary = "The video explains how small, repeatable habits can make learning easier.\n\n• Start with one clear goal.\n• Practice a little each day.\n• Review what you learned.\n\nTakeaway: Consistency matters more than intensity.";
-const fixture = id => `<!doctype html><html lang="en"><head><title>Learning a little every day - YouTube</title>
+const fixture = id => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Learning a little every day - YouTube</title>
 <style>body{background:#101010;color:#eee;font:16px Arial;margin:40px}nav{font-size:22px;margin-bottom:35px}.video{height:430px;max-width:780px;background:#1d221e;border-radius:12px;display:grid;place-items:center;color:#95a999}h1{font-size:23px}p{color:#aaa}button{padding:10px}</style></head><body><nav>▶ YouTube · Test fixture</nav>
 <ytd-watch-flexy video-id="${id}"><div id="movie_player" class="video">Video preview</div><h1>Learning a little every day</h1><p>Browser test fixture · No real video or paid API request</p>
 <ytd-video-description-transcript-section-renderer><button id="native">Show transcript</button></ytd-video-description-transcript-section-renderer>
@@ -86,9 +87,13 @@ try {
   await options.getByRole("button", { name: "Save settings" }).click();
   await options.getByText("Saved. You’re ready to summarize on YouTube.").waitFor();
   assert.equal(await options.getByLabel("OpenAI API key").inputValue(), "");
+  const customPrompt = "Summarize in Finnish. Give three practical lessons and one open question. Avoid bullet points.";
+  await options.getByLabel("System prompt", { exact: true }).fill(customPrompt);
   await options.getByLabel("Model", { exact: true }).fill("gpt-4.1-mini");
   await options.getByRole("button", { name: "Save settings" }).click();
   assert.equal(await worker.evaluate(async () => (await chrome.storage.local.get("apiKey")).apiKey), "sk-browser-test-fixture");
+  await options.reload();
+  assert.equal(await options.getByLabel("System prompt", { exact: true }).inputValue(), customPrompt);
   await options.screenshot({ path: "test-results/settings.png", fullPage: true });
   console.log("PASS: settings save, clear the displayed key, and preserve it on model-only edits");
 
@@ -96,13 +101,35 @@ try {
   await waitText(page, ".summary", /Consistency matters/);
   assert.equal(await worker.evaluate(() => testCalls.length), 1);
   assert.match(await worker.evaluate(() => testCalls[0].body.input), /clear learning goal/);
+  assert.equal(await worker.evaluate(() => testCalls[0].body.instructions), customPrompt);
+  const largePanel = await page.getByRole("region", { name: "Video summary" }).boundingBox();
+  const dockedVideo = await page.locator("#movie_player").boundingBox();
+  assert.ok(largePanel.width > 750 && largePanel.height > 700);
+  assert.ok(dockedVideo.x + dockedVideo.width < largePanel.x, "Video stays beside the summary");
   await page.getByRole("button", { name: "Close summary" }).click();
+  assert.equal(await page.evaluate(() => document.documentElement.classList.contains("youtube-brief-reading")), false);
+  assert.ok((await page.locator("#movie_player").boundingBox()).width > dockedVideo.width);
   await page.getByRole("button", { name: "Video summary", exact: true }).click();
   assert.equal(await worker.evaluate(() => testCalls.length), 1);
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "https://www.youtube.com" });
   await page.getByRole("button", { name: "Copy summary" }).click();
   assert.equal((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n"), summary);
-  await page.locator("#youtube-brief-root").screenshot({ path: "test-results/summary.png" });
+  await page.screenshot({ path: "test-results/summary.png" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobilePanel = await page.getByRole("region", { name: "Video summary" }).boundingBox();
+  const mobileVideo = await page.locator("#movie_player").boundingBox();
+  assert.ok(mobilePanel.y > mobileVideo.y + mobileVideo.height, "Narrow screens keep video above the summary");
+  assert.ok(mobilePanel.x >= 0 && mobilePanel.x + mobilePanel.width <= 390);
+  await page.screenshot({ path: "test-results/mobile-summary.png" });
+  await page.setViewportSize({ width: 1280, height: 850 });
+  await options.getByRole("button", { name: "Restore default prompt" }).click();
+  await options.getByRole("button", { name: "Save settings" }).click();
+  await options.getByText("Saved. You’re ready to summarize on YouTube.").waitFor();
+  await page.getByRole("button", { name: "Regenerate", exact: true }).click();
+  await waitText(page, ".summary", /Consistency matters/);
+  assert.equal(await worker.evaluate(() => testCalls.length), 2);
+  assert.equal(await worker.evaluate(() => testCalls.at(-1).body.instructions), DEFAULT_SYSTEM_PROMPT);
+  console.log("PASS: saved custom prompt, default restoration, regeneration, and responsive video layout");
   console.log("PASS: real content-script → worker → MAIN extraction → summary; reopen and copy do not regenerate");
 
   const client = await context.newCDPSession(page);
