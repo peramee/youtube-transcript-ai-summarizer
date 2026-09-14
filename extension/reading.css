@@ -1,9 +1,9 @@
 /* Applied only while the summary is open. Keep YouTube's existing player and controls. */
 html.youtube-brief-reading ytd-watch-flexy #movie_player:not(.ytp-fullscreen) {
-  position: fixed !important; top: 80px !important; left: 24px !important;
+  position: relative !important; top: auto !important; left: auto !important;
   width: calc(100vw * 2 / 3 - 72px) !important; height: calc((100vw * 2 / 3 - 72px) * 9 / 16) !important;
   min-width: 0 !important; min-height: 0 !important; max-width: none !important;
-  z-index: 2147482999 !important; border-radius: 12px; background: #000;
+  z-index: auto !important; border-radius: 12px; background: #000;
 }
 html.youtube-brief-reading #movie_player:not(.ytp-fullscreen) .html5-video-container,
 html.youtube-brief-reading #movie_player:not(.ytp-fullscreen) video {
@@ -15,7 +15,7 @@ html.youtube-brief-reading #movie_player:not(.ytp-fullscreen) .ytp-chrome-bottom
 }
 @media (max-width: 800px) {
   html.youtube-brief-reading ytd-watch-flexy #movie_player:not(.ytp-fullscreen) {
-    left: 16px !important; width: min(100vw - 32px, 48vh) !important;
+    width: min(100vw - 32px, 48vh) !important;
     height: min(56.25vw - 18px, 27vh) !important;
   }
 }

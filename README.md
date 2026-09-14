@@ -20,7 +20,7 @@ No `npm install`, compilation, YouTube API key, or Google sign-in is required to
 
 ## Use
 
-The panel fills about one-third of the tab and nearly its full height, with the video docked on the left. Narrow windows place the video above the summary. Closing the panel restores the original player layout.
+The panel fills about one-third of the tab and nearly its full height, with the video on the left in the normal page flow. The video scrolls away as you move down to comments; the summary remains fixed on screen. Narrow windows place the video above the summary. Closing the panel restores the original player layout.
 
 By default, the panel shows an overview, key points, and a takeaway in English. **Copy summary** copies plain text. Closing and reopening the panel reuses the summary without another request. Switching videos clears it; refreshing the page lets you generate a new summary.
 
@@ -85,7 +85,7 @@ After editing extension files, click **Reload** on its card at `chrome://extensi
 
 - `extension/manifest.json` — Manifest V3, restricted YouTube/OpenAI hosts, storage and scripting permissions.
 - `extension/content.js` — Isolated reading panel, navigation handling, regenerate, and copy actions.
-- `extension/reading.css` — Temporary video docking while the panel is open.
+- `extension/reading.css` — Video sizing in the normal page flow while the panel is open.
 - `extension/background.js` — Message validation, trusted key access, current-tab validation, and request coordination.
 - `extension/transcript.js` — Self-contained extractor injected into YouTube's main world without credentials.
 - `extension/core.js` — Input validation, prompt, Responses request, output parsing, and error mapping.

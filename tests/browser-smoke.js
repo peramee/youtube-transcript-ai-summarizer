@@ -18,7 +18,7 @@ let modernTranscript = false;
 const firstId = "abcdefghijk";
 const summary = "The video explains how small, repeatable habits can make learning easier.\n\n• Start with one clear goal.\n• Practice a little each day.\n• Review what you learned.\n\nTakeaway: Consistency matters more than intensity.";
 const fixture = id => `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Learning a little every day - YouTube</title>
-<style>body{background:#101010;color:#eee;font:16px Arial;margin:40px}nav{font-size:22px;margin-bottom:35px}.video{height:430px;max-width:780px;background:#1d221e;border-radius:12px;display:grid;place-items:center;color:#95a999}h1{font-size:23px}p{color:#aaa}button{padding:10px}</style></head><body><nav>▶ YouTube · Test fixture</nav>
+<style>body{background:#101010;color:#eee;font:16px Arial;margin:40px}nav{font-size:22px;margin-bottom:14px}.video{height:430px;max-width:780px;background:#1d221e;border-radius:12px;display:grid;place-items:center;color:#95a999}h1{font-size:23px}p{color:#aaa}button{padding:10px}</style></head><body><nav>▶ YouTube · Test fixture</nav>
 <ytd-watch-flexy video-id="${id}"><div id="movie_player" class="video">Video preview</div><h1>Learning a little every day</h1><p>Browser test fixture · No real video or paid API request</p>
 <ytd-video-description-transcript-section-renderer><button id="native">Show transcript</button></ytd-video-description-transcript-section-renderer>
 <ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript" visibility="ENGAGEMENT_PANEL_VISIBILITY_HIDDEN"></ytd-engagement-panel-section-list-renderer></ytd-watch-flexy>
@@ -106,6 +106,21 @@ try {
   const dockedVideo = await page.locator("#movie_player").boundingBox();
   assert.ok(Math.abs(largePanel.width - 1280 / 3) < 1 && largePanel.height > 700);
   assert.ok(dockedVideo.x + dockedVideo.width < largePanel.x, "Video stays beside the summary");
+  await page.evaluate(() => {
+    const comments = document.createElement("section");
+    comments.id = "test-comments";
+    comments.textContent = "Comments below the video";
+    comments.style.cssText = "display:block;height:1800px;margin-top:32px";
+    document.body.append(comments);
+  });
+  await page.evaluate(() => window.scrollTo(0, 600));
+  const scrolledVideo = await page.locator("#movie_player").boundingBox();
+  const scrolledPanel = await page.getByRole("region", { name: "Video summary" }).boundingBox();
+  assert.ok(Math.abs(scrolledVideo.y - (dockedVideo.y - 600)) < 2, "Video scrolls with the document");
+  assert.ok(scrolledVideo.y + scrolledVideo.height < 0, "Video is out of the way of comments");
+  assert.equal(scrolledPanel.y, largePanel.y, "Summary stays fixed while scrolling");
+  await page.evaluate(() => { window.scrollTo(0, 0); document.getElementById("test-comments").remove(); });
+  console.log("PASS: video scrolls away above comments while summary remains fixed");
   await page.getByRole("button", { name: "Close summary" }).click();
   assert.equal(await page.evaluate(() => document.documentElement.classList.contains("youtube-brief-reading")), false);
   assert.notEqual(await page.locator("#movie_player").evaluate(node => getComputedStyle(node).position), "fixed");
