@@ -7,8 +7,12 @@ const active = new Set();
 
 async function handle(message, sender) {
   if (sender.id !== chrome.runtime.id) throw new Error("Unrecognized extension request.");
-  const videoId = videoIdFromUrl(sender.url);
-  if (!sender.tab?.id || sender.frameId !== 0 || !videoId) throw new Error("Open a YouTube video to use YouTube Brief.");
+  if (!sender.tab?.id || sender.frameId !== 0 || new URL(sender.url).origin !== "https://www.youtube.com") {
+    throw new Error("Open a YouTube video to use YouTube Brief.");
+  }
+  // sender.url can retain the document's original URL after YouTube SPA navigation.
+  const videoId = videoIdFromUrl((await chrome.tabs.get(sender.tab.id)).url);
+  if (!videoId) throw new Error("Open a YouTube video to use YouTube Brief.");
   if (message.type === "OPEN_SETTINGS") {
     await chrome.runtime.openOptionsPage();
     return { ok: true };

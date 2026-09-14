@@ -2,7 +2,7 @@
   if (document.getElementById("youtube-brief-root")) return;
   const host = document.createElement("div");
   host.id = "youtube-brief-root";
-  const shadow = host.attachShadow({ mode: "closed" });
+  const shadow = host.attachShadow({ mode: "open" });
   // Only this static template is HTML. Titles, errors, and AI output use textContent.
   shadow.innerHTML = `
     <style>

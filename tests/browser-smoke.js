@@ -1,0 +1,194 @@
+import assert from "node:assert/strict";
+import { mkdir, mkdtemp } from "node:fs/promises";
+import path from "node:path";
+import { chromium } from "playwright";
+
+await mkdir("test-results", { recursive: true });
+const profile = await mkdtemp(path.resolve("test-results/profile-"));
+const extensionPath = path.resolve("extension");
+const context = await chromium.launchPersistentContext(profile, {
+  channel: "chromium", headless: true, viewport: { width: 1280, height: 850 },
+  args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`]
+});
+const errors = [];
+context.on("page", page => page.on("pageerror", error => errors.push(error.message)));
+let captionMode = "json";
+let modernTranscript = false;
+const firstId = "abcdefghijk";
+const summary = "The video explains how small, repeatable habits can make learning easier.\n\n• Start with one clear goal.\n• Practice a little each day.\n• Review what you learned.\n\nTakeaway: Consistency matters more than intensity.";
+const fixture = id => `<!doctype html><html lang="en"><head><title>Learning a little every day - YouTube</title>
+<style>body{background:#101010;color:#eee;font:16px Arial;margin:40px}nav{font-size:22px;margin-bottom:35px}.video{height:430px;max-width:780px;background:#1d221e;border-radius:12px;display:grid;place-items:center;color:#95a999}h1{font-size:23px}p{color:#aaa}button{padding:10px}</style></head><body><nav>▶ YouTube · Test fixture</nav>
+<ytd-watch-flexy video-id="${id}"><div id="movie_player" class="video">Video preview</div><h1>Learning a little every day</h1><p>Browser test fixture · No real video or paid API request</p>
+<ytd-video-description-transcript-section-renderer><button id="native">Show transcript</button></ytd-video-description-transcript-section-renderer>
+<ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript" visibility="ENGAGEMENT_PANEL_VISIBILITY_HIDDEN"></ytd-engagement-panel-section-list-renderer></ytd-watch-flexy>
+<script>
+window.setVideo = id => {
+  window.ytInitialPlayerResponse = {videoDetails:{videoId:id,title:"Learning a little every day"},captions:{playerCaptionsTracklistRenderer:{captionTracks:[{baseUrl:"https://www.youtube.com/api/timedtext?v="+id,languageCode:"en"}]}}};
+  document.querySelector("ytd-watch-flexy").setAttribute("video-id",id);
+  document.getElementById("movie_player").getPlayerResponse = () => window.ytInitialPlayerResponse;
+  const panel=document.querySelector("ytd-engagement-panel-section-list-renderer");
+  panel.setAttribute("visibility","ENGAGEMENT_PANEL_VISIBILITY_HIDDEN"); panel.replaceChildren();
+};
+window.setVideo("${id}");
+document.getElementById("native").onclick = () => {
+  const panel=document.querySelector("ytd-engagement-panel-section-list-renderer");
+  panel.setAttribute("visibility","ENGAGEMENT_PANEL_VISIBILITY_EXPANDED");
+  if (${modernTranscript}) {
+    panel.removeAttribute("target-id");
+    panel.innerHTML='<yt-section-list-renderer data-target-id="PAmodern_transcript_view"><textarea aria-label="Search transcript"></textarea><transcript-segment-view-model><div class="ytwTranscriptSegmentViewModelTimestamp">0:12</div><div class="ytwTranscriptSegmentViewModelTimestampA11yLabel">12 seconds</div><span class="ytAttributedStringHost">Modern fallback transcript: practice daily.</span></transcript-segment-view-model></yt-section-list-renderer>';
+  } else {
+    panel.innerHTML='<ytd-transcript-segment-renderer><span class="segment-timestamp">0:12</span><span class="segment-text">Native fallback transcript: practice daily.</span></ytd-transcript-segment-renderer>';
+  }
+};
+</script></body></html>`;
+
+async function waitText(page, selector, pattern) {
+  await page.waitForFunction(({ selector, source }) => {
+    const text = document.getElementById("youtube-brief-root")?.shadowRoot?.querySelector(selector)?.textContent;
+    return new RegExp(source).test(text || "");
+  }, { selector, source: pattern.source }, { timeout: 12_000 }).catch(async error => { console.error(await page.locator("#youtube-brief-root .summary").textContent()); throw error; });
+}
+
+try {
+  await context.route("https://www.youtube.com/**", route => {
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/timedtext") {
+      return route.fulfill({ contentType: captionMode === "xml" ? "text/xml" : "application/json", body: captionMode === "empty" ? "" : captionMode === "xml" ? '<transcript><text start="1">Learn &amp; practice.</text></transcript>' : JSON.stringify({ events: [{ tStartMs: 0, segs: [{ utf8: "Set a clear learning goal and practice a little every day." }] }] }) });
+    }
+    return route.fulfill({ contentType: "text/html", body: fixture(url.searchParams.get("v") || firstId) });
+  });
+  // Fail closed: the suite must never make a paid API request.
+  await context.route("https://api.openai.com/**", route => route.abort());
+  const worker = context.serviceWorkers()[0] || await context.waitForEvent("serviceworker");
+  const extensionId = new URL(worker.url()).host;
+  await worker.evaluate(summary => {
+    globalThis.testCalls = [];
+    globalThis.testStatus = 200;
+    globalThis.testDelay = 0;
+    globalThis.fetch = async (url, options) => {
+      if (url !== "https://api.openai.com/v1/responses") throw new Error("Unexpected worker fetch");
+      globalThis.testCalls.push({ url, body: JSON.parse(options.body) });
+      const status = globalThis.testStatus;
+      await new Promise(resolve => setTimeout(resolve, globalThis.testDelay));
+      return Response.json(status === 200 ? { status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: summary }] }] } : { error: { code: "invalid_api_key" } }, { status });
+    };
+  }, summary);
+  const page = await context.newPage();
+  await page.goto(`https://www.youtube.com/watch?v=${firstId}`);
+  await page.getByRole("button", { name: "Summarize video", exact: true }).click();
+  await waitText(page, ".summary", /Add your OpenAI API key/);
+  assert.equal(await worker.evaluate(() => testCalls.length), 0);
+  console.log("PASS: missing key produces an actionable error without an API call");
+
+  const options = await context.newPage();
+  await options.goto(`chrome-extension://${extensionId}/options.html`);
+  await options.getByLabel("OpenAI API key").fill("sk-browser-test-fixture");
+  await options.getByRole("button", { name: "Save settings" }).click();
+  await options.getByText("Saved. You’re ready to summarize on YouTube.").waitFor();
+  assert.equal(await options.getByLabel("OpenAI API key").inputValue(), "");
+  await options.getByLabel("Model", { exact: true }).fill("gpt-4.1-mini");
+  await options.getByRole("button", { name: "Save settings" }).click();
+  assert.equal(await worker.evaluate(async () => (await chrome.storage.local.get("apiKey")).apiKey), "sk-browser-test-fixture");
+  await options.screenshot({ path: "test-results/settings.png", fullPage: true });
+  console.log("PASS: settings save, clear the displayed key, and preserve it on model-only edits");
+
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await waitText(page, ".summary", /Consistency matters/);
+  assert.equal(await worker.evaluate(() => testCalls.length), 1);
+  assert.match(await worker.evaluate(() => testCalls[0].body.input), /clear learning goal/);
+  await page.getByRole("button", { name: "Close summary" }).click();
+  await page.getByRole("button", { name: "Video summary", exact: true }).click();
+  assert.equal(await worker.evaluate(() => testCalls.length), 1);
+  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "https://www.youtube.com" });
+  await page.getByRole("button", { name: "Copy summary" }).click();
+  assert.equal((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n"), summary);
+  await page.locator("#youtube-brief-root").screenshot({ path: "test-results/summary.png" });
+  console.log("PASS: real content-script → worker → MAIN extraction → summary; reopen and copy do not regenerate");
+
+  const client = await context.newCDPSession(page);
+  const executionContexts = [];
+  client.on("Runtime.executionContextCreated", event => executionContexts.push(event.context));
+  await client.send("Runtime.enable");
+  const isolated = executionContexts.find(item => item.auxData?.type === "isolated" && item.origin.includes(extensionId));
+  assert.ok(isolated, "Extension isolated world exists");
+  const read = await client.send("Runtime.evaluate", { contextId: isolated.id, expression: 'chrome.storage.local.get("apiKey").then(() => "exposed").catch(() => "blocked")', awaitPromise: true, returnByValue: true });
+  assert.equal(read.result.value, "blocked");
+  console.log("PASS: API key storage is blocked from the content-script world");
+
+  async function navigate(id) {
+    await page.evaluate(id => {
+      history.pushState({}, "", "/watch?v=" + id);
+      window.setVideo(id);
+      document.dispatchEvent(new Event("yt-navigate-finish"));
+    }, id);
+    await page.getByRole("button", { name: "Summarize video", exact: true }).waitFor();
+  }
+  await navigate("zyxwvutsrqp");
+  captionMode = "empty";
+  await page.getByRole("button", { name: "Summarize video", exact: true }).click();
+  await waitText(page, ".summary", /Consistency matters/);
+  assert.match(await worker.evaluate(() => testCalls.at(-1).body.input), /Native fallback transcript/);
+  console.log("PASS: SPA navigation and native transcript fallback");
+
+  modernTranscript = true;
+  await page.goto("https://www.youtube.com/watch?v=modern12345");
+  await page.getByRole("button", { name: "Summarize video", exact: true }).click();
+  await waitText(page, ".summary", /Consistency matters/);
+  const modernInput = await worker.evaluate(() => testCalls.at(-1).body.input);
+  assert.match(modernInput, /Modern fallback transcript/);
+  assert.ok(!modernInput.includes("12 seconds"));
+  console.log("PASS: current YouTube transcript layout without duplicated accessibility text");
+
+  await page.goto("https://www.youtube.com/watch?v=filterid123");
+  await page.getByRole("button", { name: "Show transcript", exact: true }).click();
+  await page.getByRole("textbox", { name: "Search transcript" }).fill("filtered");
+  const beforeFilter = await worker.evaluate(() => testCalls.length);
+  await page.getByRole("button", { name: "Summarize video", exact: true }).click();
+  await waitText(page, ".summary", /Clear the search field/);
+  assert.equal(await worker.evaluate(() => testCalls.length), beforeFilter);
+  console.log("PASS: filtered native transcripts are rejected before API usage");
+
+  await navigate("xmlvideo123");
+  captionMode = "xml";
+  await page.getByRole("button", { name: "Summarize video", exact: true }).click();
+  await waitText(page, ".summary", /Consistency matters/);
+  assert.match(await worker.evaluate(() => testCalls.at(-1).body.input), /Learn & practice/);
+  console.log("PASS: XML captions and entity decoding");
+
+  await navigate("errorvideo1");
+  captionMode = "json";
+  await worker.evaluate(() => { globalThis.testStatus = 401; });
+  await page.getByRole("button", { name: "Summarize video", exact: true }).click();
+  await waitText(page, ".summary", /key was rejected/);
+  await worker.evaluate(() => { globalThis.testStatus = 200; globalThis.testDelay = 1200; });
+  await page.getByRole("button", { name: "Try again", exact: true }).click();
+  await waitText(page, ".summary", /Writing your summary/);
+  await navigate("nextvideo12");
+  await page.waitForTimeout(1500);
+  assert.equal(await page.getByRole("region", { name: "Video summary" }).isVisible(), false);
+  console.log("PASS: rejected-key recovery and late responses discarded after navigation");
+
+  const before = await worker.evaluate(() => testCalls.length);
+  await page.evaluate(() => {
+    window.ytInitialPlayerResponse.captions = undefined;
+    document.querySelector("ytd-video-description-transcript-section-renderer").remove();
+  });
+  await page.getByRole("button", { name: "Summarize video", exact: true }).click();
+  await waitText(page, ".summary", /No transcript could be loaded/);
+  assert.equal(await worker.evaluate(() => testCalls.length), before);
+  console.log("PASS: missing captions never trigger an OpenAI call");
+
+  await options.getByRole("button", { name: "Remove key" }).click();
+  await options.getByText("API key removed from this browser.").waitFor();
+  assert.equal(await worker.evaluate(async () => (await chrome.storage.local.get("apiKey")).apiKey), undefined);
+  await page.evaluate(() => {
+    history.pushState({}, "", "/");
+    document.dispatchEvent(new Event("yt-navigate-finish"));
+  });
+  assert.equal(await page.locator("#youtube-brief-root").isVisible(), false);
+  assert.deepEqual(errors, []);
+  console.log("PASS: key removal, hidden UI outside watch pages, and no browser script errors");
+} finally {
+  await context.close();
+}
+console.log("All browser smoke checks passed. Screenshots: test-results/settings.png and summary.png.");

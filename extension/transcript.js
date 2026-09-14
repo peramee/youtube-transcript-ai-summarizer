@@ -71,11 +71,15 @@ export async function extractTranscript(expectedId) {
     const readPanel = () => {
       assertCurrent();
       if (watch.getAttribute("video-id") !== expectedId) return "";
-      const panel = watch.querySelector('ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"][visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]');
+      const panel = watch.querySelector('ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-searchable-transcript"][visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"]')
+        || watch.querySelector('ytd-engagement-panel-section-list-renderer[visibility="ENGAGEMENT_PANEL_VISIBILITY_EXPANDED"] [data-target-id="PAmodern_transcript_view"]');
       if (!panel) return "";
-      return [...panel.querySelectorAll("ytd-transcript-segment-renderer")].map(node => {
-        const time = node.querySelector(".segment-timestamp")?.textContent.trim();
-        const text = node.querySelector(".segment-text")?.textContent.replace(/\s+/g, " ").trim();
+      if (panel.querySelector?.("input, textarea")?.value.trim()) {
+        throw new Error("Clear the search field in YouTube’s transcript panel, then try again.");
+      }
+      return [...panel.querySelectorAll("ytd-transcript-segment-renderer, transcript-segment-view-model")].map(node => {
+        const time = node.querySelector(".segment-timestamp, .ytwTranscriptSegmentViewModelTimestamp")?.textContent.trim();
+        const text = node.querySelector(".segment-text, .ytAttributedStringHost")?.textContent.replace(/\s+/g, " ").trim();
         return text ? `${time ? `[${time}] ` : ""}${text}` : "";
       }).filter(Boolean).join("\n");
     };
