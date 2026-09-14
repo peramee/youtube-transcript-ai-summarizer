@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Brief",
+  "version": "1.0.0",
+  "description": "Summarize the current YouTube video's transcript with your OpenAI API key.",
+  "minimum_chrome_version": "120",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": ["https://www.youtube.com/*", "https://api.openai.com/*"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "YouTube Brief settings", "default_popup": "options.html" },
+  "options_page": "options.html",
+  "content_scripts": [{
+    "matches": ["https://www.youtube.com/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
+}

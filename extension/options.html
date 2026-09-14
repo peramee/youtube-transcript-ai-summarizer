@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>YouTube Brief settings</title>
+  <link rel="stylesheet" href="options.css">
+  <script type="module" src="options.js"></script>
+</head>
+<body>
+  <main>
+    <span class="eyebrow">YOUTUBE BRIEF</span>
+    <h1>Less watching.<br>More understanding.</h1>
+    <p>Add your key once. Then click <strong>Summarize video</strong> on any YouTube watch page with a transcript.</p>
+    <form id="settings">
+      <label for="api-key">OpenAI API key</label>
+      <input id="api-key" type="password" placeholder="sk-…" autocomplete="off" spellcheck="false" maxlength="512" aria-describedby="key-help">
+      <p id="key-help" class="hint">Stored only in this Chrome profile. Never sent to YouTube. Leave blank to keep your saved key.</p>
+      <label for="model">Model</label>
+      <input id="model" value="gpt-4.1-mini" required pattern="[A-Za-z0-9._:-]+" maxlength="100" spellcheck="false">
+      <p class="hint">Use a text model that supports the OpenAI Responses API.</p>
+      <div class="actions"><button type="submit">Save settings</button><button type="button" id="forget" class="secondary">Remove key</button></div>
+      <p id="status" role="status" aria-live="polite"></p>
+    </form>
+    <footer>Clicking summarize sends the video title and transcript to OpenAI. API usage is billed to your OpenAI account separately from ChatGPT. Your key is stored locally, not encrypted by this extension. Use this extension only in your own browser profile.<br><br><a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">Get an API key ↗</a></footer>
+  </main>
+</body>
+</html>
