@@ -10,8 +10,7 @@ A local Chrome extension that summarizes the current YouTube video from its tran
 
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode**.
-3. Click **Load unpacked** and select this project's **extension** folder:
-   `H:\Programming\youtube-transcript-ai-summarizer\extension`
+3. Click **Load unpacked** and select this project's **extension** folder.
 4. Open **YouTube Brief** from Chrome's Extensions menu (the puzzle icon). You can pin it for easy access.
 5. Enter your [OpenAI API key](https://platform.openai.com/api-keys), then click **Save settings**.
 6. Open or refresh a desktop YouTube watch page. Click **Summarize video** in the bottom-right corner.
