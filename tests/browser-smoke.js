@@ -230,6 +230,10 @@ try {
   assert.match(chatRequest.input[0].content, /clear learning goal/);
   assert.equal(chatRequest.input.at(-1).content, "Why practice every day?");
   assert.equal(chatRequest.tools, undefined);
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  await page.locator(".body").evaluate(node => { node.scrollTop = 0; });
+  await page.screenshot({ path: "test-results/preview.png" });
+  await page.setViewportSize({ width: 1280, height: 850 });
   await question.fill("fc");
   await worker.evaluate(() => { globalThis.testPartial = true; });
   await page.getByRole("button", { name: "Send", exact: true }).click();

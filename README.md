@@ -2,9 +2,9 @@
 
 A local Chrome extension that summarizes the current YouTube video from its transcript using your OpenAI API key. Plain JavaScript, a spacious reading panel beside the video, and no server or build step.
 
-![Summary panel showing a simulated browser-test response](docs/preview.png)
+![Current summary panel with a follow-up conversation and chat input](docs/preview.png)
 
-*Preview uses a simulated response from the browser test.*
+*Preview shows the current extension UI with simulated summary and chat responses from the browser test.*
 
 ## Install in Chrome
 
