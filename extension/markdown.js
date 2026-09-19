@@ -46,36 +46,50 @@ globalThis.renderChatMarkdown = function (container, text, citations = []) {
     parent.append(document.createTextNode(value.slice(end)));
   }
   const lines = source.replace(/\r\n?/g, "\n").split("\n");
-  let paragraph = null, list = null;
+  let paragraph = null;
+  let lists = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (!line.trim()) { paragraph = list = null; continue; }
+    if (!line.trim()) { paragraph = null; continue; }
     const fence = line.match(/^\s*(`{3,}|~{3,})/);
     if (fence) {
-      paragraph = list = null;
+      paragraph = null; lists = [];
       const code = document.createElement("code"), pre = document.createElement("pre"), body = [];
       while (++i < lines.length && !new RegExp(`^\\s*${fence[1][0]}{${fence[1].length},}\\s*$`).test(lines[i])) body.push(lines[i]);
       code.textContent = body.join("\n"); pre.append(code); container.append(pre); continue;
     }
     const heading = line.match(/^ {0,3}(#{1,6})\s+(.+?)(?:\s+#+)?$/);
-    const item = line.match(/^\s*(?:([-+*])|\d+[.)])\s+(.+)$/);
+    const item = line.match(/^([ \t]*)(?:([-+*])|(\d+)[.)])[ \t]+(.+)$/);
     const quote = line.match(/^\s*>\s?(.*)$/);
     if (heading || quote || /^\s*(?:---+|\*\*\*+|___+)\s*$/.test(line)) {
-      paragraph = list = null;
+      paragraph = null; lists = [];
       const node = document.createElement(heading ? `h${heading[1].length}` : quote ? "blockquote" : "hr");
       if (heading || quote) inline(node, heading ? heading[2] : quote[1]);
       container.append(node);
     } else if (item) {
       paragraph = null;
-      const tag = item[1] ? "ul" : "ol";
-      if (!list || list.localName !== tag) {
-        list = document.createElement(tag);
-        if (tag === "ol") list.start = Number(line.trim().match(/^\d+/)[0]);
-        container.append(list);
+      const indent = item[1].replace(/\t/g, "    ").length;
+      const tag = item[2] ? "ul" : "ol";
+      while (lists.length && lists.at(-1).indent > indent) lists.pop();
+      if (lists.at(-1)?.indent === indent && lists.at(-1).node.localName !== tag) lists.pop();
+      if (!lists.length || lists.at(-1).indent < indent) {
+        const node = document.createElement(tag);
+        if (tag === "ol") node.start = Number(item[3]);
+        (lists.at(-1)?.lastItem || container).append(node);
+        lists.push({ indent, node, lastItem: null });
       }
-      const li = document.createElement("li"); inline(li, item[2]); list.append(li);
+      const li = document.createElement("li"); inline(li, item[4]);
+      lists.at(-1).node.append(li);
+      lists.at(-1).lastItem = li;
     } else {
-      list = null;
+      const indent = line.match(/^[ \t]*/)[0].replace(/\t/g, "    ").length;
+      if (lists.length && indent > lists.at(-1).indent) {
+        const parent = lists.at(-1).lastItem;
+        parent.append(document.createElement("br"));
+        inline(parent, line.trimStart());
+        continue;
+      }
+      lists = [];
       if (!paragraph) { paragraph = document.createElement("p"); container.append(paragraph); }
       else paragraph.append(document.createElement("br"));
       inline(paragraph, line);

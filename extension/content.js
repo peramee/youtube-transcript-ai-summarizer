@@ -38,6 +38,7 @@
       .chat-answer h2 { font-size: 19px; }
       .chat-answer > :first-child { margin-top: 0; }
       .chat-answer ul, .chat-answer ol { padding-left: 24px; margin: 8px 0; }
+      .chat-answer li > ul, .chat-answer li > ol { margin: 4px 0; }
       .chat-answer li { margin: 4px 0; }
       .chat-answer blockquote { border-left: 3px solid #a7b7a5; margin: 10px 0; padding-left: 12px; color: #526c58; }
       .chat-answer code { background: #e5ebe0; padding: 2px 4px; border-radius: 3px; font-size: .9em; }

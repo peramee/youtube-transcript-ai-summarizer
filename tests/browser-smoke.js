@@ -201,6 +201,26 @@ try {
   assert.deepEqual(formatted.result.value, { heading: "Verdict", bold: "Supported", italic: "qualified", bullets: 2,
     numbered: 2, quote: "Evidence", code: "<b>literal</b>", links: ["https://example.org/source", "https://example.org/"], unsafe: 0 });
   console.log("PASS: Markdown formatting, citations, and unsafe HTML/link rejection");
+  const nestedText = ["### Exercise", "- **Frequency:** About **3–4 workouts per week**", "- **Type:**", "  - Calisthenics", "  - Weighted-vest training", "", "- **Workout structure:**", "    - Approximately **2–3 sets to failure**", "      - Stop when form breaks", "    - Usually only **1–2 exercises**", "- **Daily walking:**", "  1. Usually **8,700–10,000 steps**", "     Continued explanation", "  2. Occasionally **12,000–15,000 steps**"].join("\n");
+  const nested = await client.send("Runtime.evaluate", {
+    contextId: isolated.id,
+    expression: `(() => {
+      const node = document.createElement('div'); node.className = 'chat-answer'; node.id = 'nested-test';
+      document.querySelector('#youtube-brief-root').shadowRoot.querySelector('.body').append(node);
+      renderChatMarkdown(node, ${JSON.stringify(nestedText)});
+      const root = node.querySelector('ul');
+      return { parents: root.children.length, children: root.children[1].querySelectorAll(':scope > ul > li').length,
+        deep: root.children[2].querySelector(':scope > ul > li > ul > li').textContent,
+        numbered: root.children[3].querySelectorAll('ol > li').length,
+        continuation: root.children[3].querySelector('ol > li').textContent.includes('Continued explanation'),
+        indented: root.children[1].querySelector('li').getBoundingClientRect().x > root.children[1].getBoundingClientRect().x };
+    })()`, returnByValue: true
+  });
+  assert.deepEqual(nested.result.value, { parents: 4, children: 2, deep: "Stop when form breaks", numbered: 2, continuation: true, indented: true });
+  await page.locator('#nested-test').screenshot({ path: 'test-results/nested-bullets.png' });
+  await page.locator('#nested-test').evaluate(node => node.remove());
+  console.log("PASS: nested bullet indentation, blank lines, mixed numbered lists, and continuation text");
+
 
   const question = page.getByRole("textbox", { name: "Ask about the transcript" });
   await question.fill("Why practice every day?");

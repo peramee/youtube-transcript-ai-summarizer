@@ -76,3 +76,5 @@ Markdown browser coverage verifies headings, bold, italics, lists, quotes, fence
 ## Persistent per-video chat
 
 Browser checks cover restoring messages and citations after reload without an API call, continuing with restored model history, independent video caches, persistent Clear chat, fresh transcript extraction on Regenerate, and reopening a closed video's chat after session memory and the API key have been removed. Network responses remain simulated.
+
+Nested-list regression coverage checks parent/child structure, multiple indentation levels, blank lines between items, mixed bullet and numbered lists, continuation text, and visible horizontal indentation. The rendered exercise-list fixture was visually inspected.
