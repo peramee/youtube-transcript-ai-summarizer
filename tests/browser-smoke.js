@@ -77,7 +77,11 @@ try {
           ...(web ? [{ type: "web_search_call" }] : []),
           { type: "message", content: [{ type: "output_text", text: "Practice daily. [1]", annotations: web ? [{ type: "url_citation", start_index: 16, end_index: 19, url: "https://example.org/evidence", title: "Source evidence" }] : [] }] }
         ] };
-        return new Response("data: " + JSON.stringify({ type: "response.completed", response }) + "\n\n", { headers: { "Content-Type": "text/event-stream" } });
+        if (globalThis.testPartial) {
+          response.status = "incomplete";
+          response.incomplete_details = { reason: "max_output_tokens" };
+        }
+        return new Response("data: " + JSON.stringify({ type: globalThis.testPartial ? "response.incomplete" : "response.completed", response }) + "\n\n", { headers: { "Content-Type": "text/event-stream" } });
       }
       return Response.json(status === 200 ? { status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: summary }] }] } : { error: { code: "invalid_api_key" } }, { status });
     };
@@ -189,9 +193,12 @@ try {
   assert.equal(chatRequest.input.at(-1).content, "Why practice every day?");
   assert.equal(chatRequest.tools, undefined);
   await question.fill("Is this supported by evidence?");
+  await worker.evaluate(() => { globalThis.testPartial = true; });
   await page.getByRole("checkbox", { name: "Search web" }).check();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await page.getByRole("link", { name: "[Source evidence]", exact: true }).waitFor();
+  await waitText(page, ".chat-status", /may be incomplete/);
+  await worker.evaluate(() => { globalThis.testPartial = false; });
   chatRequest = await worker.evaluate(() => testCalls.at(-1).body);
   assert.ok(chatRequest.input.some(message => message.content === "Why practice every day?"));
   assert.deepEqual(chatRequest.tools, [{ type: "web_search" }]);

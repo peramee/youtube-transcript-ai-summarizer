@@ -59,7 +59,7 @@ async function handle(message, sender) {
       const answer = await answerQuestion(session, message.question, settings, message.searchWeb === true);
       if (videoIdFromUrl((await chrome.tabs.get(tabId)).url) !== videoId) throw new Error("The video changed. Try again.");
       const sources = [...new Set(answer.citations.map(citation => `${citation.title}: ${citation.url}`))];
-      const rememberedAnswer = answer.text + (sources.length ? `\nSources from this answer:\n${sources.join("\n")}` : "");
+      const rememberedAnswer = answer.text + (answer.warning ? `\n[${answer.warning}]` : "") + (sources.length ? `\nSources from this answer:\n${sources.join("\n")}` : "");
       session.history.push({ role: "user", content: message.question.trim() }, { role: "assistant", content: rememberedAnswer });
       session.updatedAt = Date.now();
       await saveSession(tabId, session);

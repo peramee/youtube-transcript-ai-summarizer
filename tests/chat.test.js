@@ -35,9 +35,28 @@ test("stream parser handles chunked UTF-8, CRLF, deltas, and completion", async 
   const stream = new ReadableStream({ start(controller) { for (let i = 0; i < bytes.length; i += 3) controller.enqueue(bytes.slice(i, i + 3)); controller.close(); } });
   assert.deepEqual(await readChatStream(new Response(stream)), data);
 });
-test("truncated streams and incomplete answers are not accepted", async () => {
+test("truncated streams and unexplained incomplete answers are not accepted", async () => {
   await assert.rejects(readChatStream(new Response('data: {"type":"response.output_text.delta","delta":"partial"}\n\n')), /before the answer was complete/);
-  assert.throws(() => chatAnswer({ ...completed, status: "incomplete" }), /cut short/);
+  assert.throws(() => chatAnswer({ ...completed, status: "incomplete" }), /could not finish the answer/);
+});
+
+test("reasoning models have room to think and write, without breaking non-reasoning models", () => {
+  const request = makeChatRequest(session, "Why?", { model: "gpt-5.6-luna" });
+  assert.equal(request.max_output_tokens, 25000);
+  assert.deepEqual(request.reasoning, { effort: "low" });
+  assert.equal(makeChatRequest(session, "Why?", { model: "gpt-4.1-mini" }).reasoning, undefined);
+});
+
+test("output-limit answers preserve visible text with an explicit warning", async () => {
+  const partial = { ...completed, status: "incomplete", incomplete_details: { reason: "max_output_tokens" } };
+  const answer = await answerQuestion(session, "Explain", {}, false, async () => new Response("data: " + JSON.stringify({ type: "response.incomplete", response: partial }) + "\n\n"));
+  assert.equal(answer.text, "An answer.");
+  assert.match(answer.warning, /may be incomplete/);
+});
+
+test("reasoning-only exhaustion and content filtering produce chat-specific errors", () => {
+  assert.throws(() => chatAnswer({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" }, output: [{ type: "reasoning" }] }), /before writing an answer/);
+  assert.throws(() => chatAnswer({ ...completed, status: "incomplete", incomplete_details: { reason: "content_filter" } }), /could not finish the answer/);
 });
 test("citations retain text offsets and reject unsafe or invalid links", () => {
   const result = chatAnswer({ status: "completed", output: [{ type: "web_search_call" }, { type: "message", content: [

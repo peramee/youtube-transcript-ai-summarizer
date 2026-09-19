@@ -4,7 +4,7 @@ Verified on Windows on September 14, 2026, using Node.js 24.15.0 and Playwright 
 
 ## Automated checks
 
-- **31 unit tests passed:** URL validation, transcript identity/size/emptiness, source/instruction separation, response parsing, refusals, incomplete outputs, HTTP errors, quota, network failures, timeouts, signed-caption URL restrictions, Unicode, timestamps, language ranking, native fallback, navigation during extraction, and chat request/stream/citation handling.
+- **34 unit tests passed:** URL validation, transcript identity/size/emptiness, source/instruction separation, response parsing, refusals, incomplete outputs, HTTP errors, quota, network failures, timeouts, signed-caption URL restrictions, Unicode, timestamps, language ranking, native fallback, navigation during extraction, and chat request/stream/citation handling.
 - **Browser integration checks passed:** a real unpacked extension runs its content script, service worker, injected main-world extractor, settings page, and clipboard action.
 - **Manifest and JavaScript checks passed.**
 - **Git whitespace check passed.**
@@ -67,3 +67,5 @@ Added eight unit tests for full transcript/history context, explicit web-search 
 The real-extension browser suite also verifies question submission with Enter, successive turns carrying conversation history, source links, trusted session storage, preserving a failed question for retry, clearing chat without another summary, and discarding late answers when navigating to another video. Chat screenshots were visually inspected.
 
 OpenAI answers and web-search citations are simulated in these tests. No live paid completion or web search was run, and model-specific web-search availability still depends on the user's selected model and API account.
+
+The September 19 chat output-limit fix adds regression checks for reasoning-model budgets, visible partial answers, and empty or filtered incomplete responses. The browser suite verifies that a partial answer retains its citations and displays an incomplete-answer notice.

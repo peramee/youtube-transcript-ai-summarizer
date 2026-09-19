@@ -209,7 +209,7 @@
       if (!response?.ok) throw new Error(response?.error || "No answer received. Try again.");
       addMessage("assistant", response.answer.text, response.answer.citations, response.answer.searched);
       chatInput.value = "";
-      chatStatus.textContent = "";
+      chatStatus.textContent = response.answer.warning || "";
       clearChat.hidden = false;
     } catch (error) {
       if (currentGeneration !== generation || getVideoId() !== requestedId) return;
