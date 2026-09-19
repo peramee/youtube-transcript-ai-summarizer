@@ -3,7 +3,7 @@
   const host = document.createElement("div");
   host.id = "youtube-brief-root";
   const shadow = host.attachShadow({ mode: "open" });
-  // Only this static template is HTML. Titles, errors, and AI output use textContent.
+  // Only this static template is HTML. Model output is rendered with safe DOM nodes, never HTML.
   shadow.innerHTML = `
     <style>
       :host { all: initial; position: fixed; right: 24px; bottom: 24px; z-index: 2147483000; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color-scheme: light; }
@@ -29,8 +29,21 @@
       button:disabled { cursor: wait; opacity: .6; }
       .chat-log { display: grid; gap: 16px; margin-top: 24px; }
       .chat-message { border-top: 1px solid #dce2d7; padding-top: 14px; }
-      .chat-message strong { display: block; font-size: 11px; color: #526c58; margin-bottom: 6px; }
+      .chat-message > strong { display: block; font-size: 11px; color: #526c58; margin-bottom: 6px; }
       .chat-message p { margin: 0; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .chat-answer { font-size: 14px; line-height: 1.7; overflow-wrap: anywhere; }
+      .chat-answer p { margin: 0 0 10px; white-space: normal; }
+      .chat-answer h1, .chat-answer h2, .chat-answer h3, .chat-answer h4, .chat-answer h5, .chat-answer h6 { margin: 18px 0 8px; font-size: 16px; line-height: 1.35; letter-spacing: normal; }
+      .chat-answer h1 { font-size: 21px; }
+      .chat-answer h2 { font-size: 19px; }
+      .chat-answer > :first-child { margin-top: 0; }
+      .chat-answer ul, .chat-answer ol { padding-left: 24px; margin: 8px 0; }
+      .chat-answer li { margin: 4px 0; }
+      .chat-answer blockquote { border-left: 3px solid #a7b7a5; margin: 10px 0; padding-left: 12px; color: #526c58; }
+      .chat-answer code { background: #e5ebe0; padding: 2px 4px; border-radius: 3px; font-size: .9em; }
+      .chat-answer pre { overflow-x: auto; background: #e5ebe0; padding: 12px; border-radius: 6px; white-space: pre; }
+      .chat-answer pre code { padding: 0; }
+      .chat-answer hr { border: 0; border-top: 1px solid #dce2d7; margin: 16px 0; }
       .chat-message.user { background: #eaf0e5; padding: 12px; border: 0; border-radius: 8px; }
       .chat-message a { color: #245d3a; text-decoration: underline; }
       .chat-form { flex-shrink: 0; border-top: 1px solid #dce2d7; padding: 12px 18px; }
@@ -53,7 +66,7 @@
       <header><span class="brand">YOUTUBE BRIEF</span><button class="close" aria-label="Close summary">×</button></header>
       <div class="body"><h2>Your video, distilled.</h2><p class="meta">Based on the transcript · Powered by OpenAI</p><p class="summary" role="status" aria-live="polite"></p><div class="chat-log" role="log" aria-label="Conversation" aria-live="polite"></div></div>
       <form class="chat-form" aria-label="Ask about this video" hidden>
-        <div class="chat-entry"><textarea class="chat-input" aria-label="Ask about the transcript" placeholder="Ask about the transcript…" rows="2" maxlength="4000"></textarea><button class="send" type="submit" disabled>Send</button></div>
+        <div class="chat-entry"><textarea class="chat-input" aria-label="Ask about the transcript" placeholder="Ask a question, or type fc to fact-check…" rows="2" maxlength="4000"></textarea><button class="send" type="submit" disabled>Send</button></div>
         <div class="chat-tools"><label title="Use OpenAI web search for external sources. Additional API charges may apply."><input class="search-web" type="checkbox">Search web</label><button class="subtle clear-chat" type="button" hidden>Clear chat</button></div>
         <p class="chat-status" role="status" aria-live="polite"></p>
       </form>
@@ -87,24 +100,11 @@
     article.className = `chat-message ${role}`;
     const label = document.createElement("strong");
     label.textContent = role === "user" ? "You" : searched ? "AI · Web search" : "AI · No web search";
-    const paragraph = document.createElement("p");
-    let cursor = 0;
-    for (const citation of [...citations].sort((a, b) => a.start - b.start)) {
-      if (citation.start < cursor || citation.end > text.length) continue;
-      try {
-        if (!["http:", "https:"].includes(new URL(citation.url).protocol)) continue;
-      } catch { continue; }
-      paragraph.append(document.createTextNode(text.slice(cursor, citation.start)));
-      const link = document.createElement("a");
-      link.href = citation.url;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.title = citation.title;
-      link.textContent = `[${citation.title}]`;
-      paragraph.append(link);
-      cursor = citation.end;
-    }
-    paragraph.append(document.createTextNode(text.slice(cursor)));
+    const paragraph = document.createElement(role === "assistant" ? "div" : "p");
+    if (role === "assistant") {
+      paragraph.className = "chat-answer";
+      globalThis.renderChatMarkdown(paragraph, text, citations);
+    } else paragraph.textContent = text;
     article.append(label, paragraph);
     chatLog.append(article);
     $(".body").scrollTop = $(".body").scrollHeight;
@@ -198,7 +198,7 @@
     if (busy || !sessionId || !chatInput.value.trim()) return;
     const currentGeneration = generation, requestedId = videoId;
     const question = chatInput.value.trim();
-    const useSearch = searchWeb.checked;
+    const useSearch = searchWeb.checked || question.toLowerCase() === "fc";
     busy = true;
     updateChatControls();
     chatStatus.textContent = useSearch ? "Checking sources…" : "Thinking…";

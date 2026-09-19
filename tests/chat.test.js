@@ -86,3 +86,14 @@ test("unsupported web search and network errors have actionable messages", async
   await assert.rejects(answerQuestion(session, "Check", {}, true, async () => Response.json({}, { status: 400 })), /model could not use web search/);
   await assert.rejects(answerQuestion(session, "Check", {}, false, async () => { throw new TypeError("Network"); }), /connection/);
 });
+
+
+test("fc shortcut requests a sourced video fact-check without the checkbox", () => {
+  for (const question of ["fc", " FC "]) {
+    const request = makeChatRequest(session, question, {});
+    assert.deepEqual(request.tools, [{ type: "web_search" }]);
+    assert.match(request.instructions, /fact-check the video's main verifiable claims/);
+    assert.match(request.instructions, /Markdown headings/);
+  }
+  assert.equal(makeChatRequest(session, "What does fc mean?", {}).tools, undefined);
+});

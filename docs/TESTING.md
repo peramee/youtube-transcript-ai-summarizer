@@ -4,7 +4,7 @@ Verified on Windows on September 14, 2026, using Node.js 24.15.0 and Playwright 
 
 ## Automated checks
 
-- **34 unit tests passed:** URL validation, transcript identity/size/emptiness, source/instruction separation, response parsing, refusals, incomplete outputs, HTTP errors, quota, network failures, timeouts, signed-caption URL restrictions, Unicode, timestamps, language ranking, native fallback, navigation during extraction, and chat request/stream/citation handling.
+- **35 unit tests passed:** URL validation, transcript identity/size/emptiness, source/instruction separation, response parsing, refusals, incomplete outputs, HTTP errors, quota, network failures, timeouts, signed-caption URL restrictions, Unicode, timestamps, language ranking, native fallback, navigation during extraction, and chat request/stream/citation handling.
 - **Browser integration checks passed:** a real unpacked extension runs its content script, service worker, injected main-world extractor, settings page, and clipboard action.
 - **Manifest and JavaScript checks passed.**
 - **Git whitespace check passed.**
@@ -69,3 +69,5 @@ The real-extension browser suite also verifies question submission with Enter, s
 OpenAI answers and web-search citations are simulated in these tests. No live paid completion or web search was run, and model-specific web-search availability still depends on the user's selected model and API account.
 
 The September 19 chat output-limit fix adds regression checks for reasoning-model budgets, visible partial answers, and empty or filtered incomplete responses. The browser suite verifies that a partial answer retains its citations and displays an incomplete-answer notice.
+
+Markdown browser coverage verifies headings, bold, italics, lists, quotes, fenced code, citation links, and rejection of unsafe HTML and links. The chat flow also checks that fc enables web search without selecting the checkbox.

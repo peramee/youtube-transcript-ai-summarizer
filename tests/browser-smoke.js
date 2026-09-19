@@ -184,6 +184,24 @@ try {
   assert.equal(sessionRead.result.value, "blocked");
   console.log("PASS: API key storage is blocked from the content-script world");
 
+  const formatted = await client.send("Runtime.evaluate", {
+    contextId: isolated.id,
+    expression: `(() => {
+      const node = document.createElement("div");
+      const text = '# Verdict\\n\\n**Supported** and *qualified*. [1]\\n\\n- First\\n- Second\\n\\n1. Check\\n2. Compare\\n\\n> Evidence\\n\\n\\x60\\x60\\x60js\\n<b>literal</b>\\n\\x60\\x60\\x60\\n\\n[Unsafe](javascript:alert) <img src=x onerror=alert(1)> [Safe](https://example.org)';
+      renderChatMarkdown(node, text, [{ start: text.indexOf('[1]'), end: text.indexOf('[1]') + 3, url: 'https://example.org/source', title: 'Evidence' }]);
+      return { heading: node.querySelector('h1')?.textContent, bold: node.querySelector('strong')?.textContent,
+        italic: node.querySelector('em')?.textContent, bullets: node.querySelectorAll('ul li').length,
+        numbered: node.querySelectorAll('ol li').length, quote: node.querySelector('blockquote')?.textContent,
+        code: node.querySelector('pre code')?.textContent, links: [...node.querySelectorAll('a')].map(a => a.href),
+        unsafe: node.querySelectorAll('img,script,[onerror]').length };
+    })()`,
+    returnByValue: true
+  });
+  assert.deepEqual(formatted.result.value, { heading: "Verdict", bold: "Supported", italic: "qualified", bullets: 2,
+    numbered: 2, quote: "Evidence", code: "<b>literal</b>", links: ["https://example.org/source", "https://example.org/"], unsafe: 0 });
+  console.log("PASS: Markdown formatting, citations, and unsafe HTML/link rejection");
+
   const question = page.getByRole("textbox", { name: "Ask about the transcript" });
   await question.fill("Why practice every day?");
   await question.press("Enter");
@@ -192,9 +210,8 @@ try {
   assert.match(chatRequest.input[0].content, /clear learning goal/);
   assert.equal(chatRequest.input.at(-1).content, "Why practice every day?");
   assert.equal(chatRequest.tools, undefined);
-  await question.fill("Is this supported by evidence?");
+  await question.fill("fc");
   await worker.evaluate(() => { globalThis.testPartial = true; });
-  await page.getByRole("checkbox", { name: "Search web" }).check();
   await page.getByRole("button", { name: "Send", exact: true }).click();
   await page.getByRole("link", { name: "[Source evidence]", exact: true }).waitFor();
   await waitText(page, ".chat-status", /may be incomplete/);
@@ -229,6 +246,7 @@ try {
     }, id);
     await page.getByRole("button", { name: "Summarize video", exact: true }).waitFor();
   }
+  await page.getByRole("checkbox", { name: "Search web" }).check();
   await worker.evaluate(() => { globalThis.testDelay = 1200; });
   await question.fill("This answer should be discarded after navigation");
   await question.press("Enter");

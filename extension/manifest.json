@@ -11,7 +11,7 @@
   "options_page": "options.html",
   "content_scripts": [{
     "matches": ["https://www.youtube.com/*"],
-    "js": ["content.js"],
+    "js": ["markdown.js", "content.js"],
     "css": ["reading.css"],
     "run_at": "document_idle"
   }]

@@ -116,3 +116,6 @@ See [validation results](docs/TESTING.md) for coverage and live verification lim
 - [Chrome storage and trusted-context access](https://developer.chrome.com/docs/extensions/reference/api/storage)
 - [Chrome service worker lifecycle](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle)
 - [Playwright extension testing](https://playwright.dev/docs/chrome-extensions)
+
+
+Chat replies support Markdown headings, bold, italics, lists, quotes, code blocks, and safe links. Type **fc** to fact-check the video's main claims with timestamps and web sources; this shortcut automatically enables web search for that turn, with the same API usage charges as Search web.
