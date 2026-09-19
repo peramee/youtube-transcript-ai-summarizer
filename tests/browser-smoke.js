@@ -220,23 +220,76 @@ try {
   assert.ok(chatRequest.input.some(message => message.content === "Why practice every day?"));
   assert.deepEqual(chatRequest.tools, [{ type: "web_search" }]);
   assert.equal(await page.getByRole("link", { name: "[Source evidence]", exact: true }).getAttribute("href"), "https://example.org/evidence");
-  const cached = await worker.evaluate(async () => Object.values(await chrome.storage.session.get(null)).find(value => value.videoId === "abcdefghijk"));
+  const cached = await worker.evaluate(async () => Object.values(await chrome.storage.local.get(null)).find(value => value?.videoId === "abcdefghijk"));
   assert.ok(cached.history.at(-1).content.includes("https://example.org/evidence"));
   await page.screenshot({ path: "test-results/chat.png" });
+  const beforeRestore = await worker.evaluate(() => testCalls.length);
+  await page.reload();
+  await page.getByRole("button", { name: "Video summary", exact: true }).click();
+  assert.equal(await page.locator(".chat-message").count(), 4);
+  await page.getByRole("link", { name: "[Source evidence]", exact: true }).waitFor();
+  await waitText(page, ".chat-status", /may be incomplete/);
+  assert.equal(await worker.evaluate(() => testCalls.length), beforeRestore);
+  await question.fill("Continue after reload");
+  await question.press("Enter");
+  await page.waitForFunction(() => document.querySelector("#youtube-brief-root").shadowRoot.querySelectorAll(".chat-message.assistant").length === 3);
+  const resumed = await worker.evaluate(() => testCalls.at(-1).body);
+  assert.ok(resumed.input.some(message => message.content === "Why practice every day?"));
+  assert.ok(resumed.input.some(message => message.role === "assistant" && message.content.includes("https://example.org/evidence")));
+
+  const otherVideo = await context.newPage();
+  await otherVideo.goto("https://www.youtube.com/watch?v=cachevideo1");
+  await otherVideo.getByRole("button", { name: "Summarize video", exact: true }).click();
+  await waitText(otherVideo, ".summary", /Consistency matters/);
+  assert.equal(await otherVideo.locator(".chat-message").count(), 0);
+  await otherVideo.getByRole("textbox", { name: "Ask about the transcript" }).fill("A separate video question");
+  await otherVideo.getByRole("button", { name: "Send", exact: true }).click();
+  await otherVideo.locator(".chat-message.assistant").waitFor();
+  await otherVideo.close();
+
   await worker.evaluate(() => { globalThis.testStatus = 401; });
   await question.fill("Keep my question if the request fails");
   await question.press("Enter");
   await waitText(page, ".chat-status", /key was rejected/);
   assert.equal(await question.inputValue(), "Keep my question if the request fails");
-  assert.equal(await page.locator(".chat-message.user").count(), 2);
+  assert.equal(await page.locator(".chat-message.user").count(), 3);
   await worker.evaluate(() => { globalThis.testStatus = 200; });
   await page.getByRole("button", { name: "Clear chat", exact: true }).click();
   await page.waitForFunction(() => !document.querySelector("#youtube-brief-root").shadowRoot.querySelector(".chat-log").children.length);
+  const afterClear = await worker.evaluate(() => testCalls.length);
+  await page.reload();
+  await page.getByRole("button", { name: "Video summary", exact: true }).click();
+  assert.equal(await page.locator(".chat-message").count(), 0);
+  assert.equal(await worker.evaluate(() => testCalls.length), afterClear);
+  const otherCache = await worker.evaluate(async () => (await chrome.storage.local.get("video-chat:cachevideo1"))["video-chat:cachevideo1"]);
+  assert.equal(otherCache.messages.length, 2);
+  assert.equal(otherCache.messages[0].text, "A separate video question");
   await question.fill("A fresh question");
   await question.press("Enter");
   await page.locator(".chat-message.assistant").waitFor();
   assert.equal((await worker.evaluate(() => testCalls.at(-1).body)).input.length, 3);
   console.log("PASS: transcript chat, conversation memory, web citations, failure recovery, and clear chat");
+  await worker.evaluate(() => { globalThis.testStatus = 401; });
+  await page.getByRole("button", { name: "Regenerate", exact: true }).click();
+  await waitText(page, ".summary", /key was rejected/);
+  await worker.evaluate(() => { globalThis.testStatus = 200; });
+  await page.reload();
+  await page.getByRole("button", { name: "Video summary", exact: true }).click();
+  assert.equal(await page.locator(".chat-message").count(), 2, "Failed regeneration preserves saved chat");
+  captionMode = "xml";
+  const beforeRegenerate = await worker.evaluate(() => testCalls.length);
+  await page.getByRole("button", { name: "Regenerate", exact: true }).click();
+  await waitText(page, ".summary", /Consistency matters/);
+  assert.equal(await worker.evaluate(() => testCalls.length), beforeRegenerate + 1);
+  assert.match(await worker.evaluate(() => testCalls.at(-1).body.input), /Learn & practice/);
+  assert.equal(await page.locator(".chat-message").count(), 0);
+  captionMode = "json";
+  await page.reload();
+  await page.getByRole("button", { name: "Video summary", exact: true }).click();
+  assert.equal(await page.locator(".chat-message").count(), 0);
+  assert.equal(await worker.evaluate(() => testCalls.length), beforeRegenerate + 1);
+  console.log("PASS: per-video local cache, reload with citations, persistent clearing, and fresh transcript regeneration");
+
 
   async function navigate(id) {
     await page.evaluate(id => {
@@ -313,6 +366,18 @@ try {
   await options.getByRole("button", { name: "Remove key" }).click();
   await options.getByText("API key removed from this browser.").waitFor();
   assert.equal(await worker.evaluate(async () => (await chrome.storage.local.get("apiKey")).apiKey), undefined);
+  // Session storage disappears on browser restart; durable video data must not.
+  await worker.evaluate(() => chrome.storage.session.clear());
+  const beforeReopen = await worker.evaluate(() => testCalls.length);
+  const reopened = await context.newPage();
+  await reopened.goto("https://www.youtube.com/watch?v=cachevideo1");
+  await reopened.getByRole("button", { name: "Video summary", exact: true }).click();
+  assert.equal(await reopened.locator(".chat-message").count(), 2);
+  assert.equal(await reopened.locator(".chat-message.user p").textContent(), "A separate video question");
+  assert.equal(await worker.evaluate(() => testCalls.length), beforeReopen);
+  await reopened.close();
+  console.log("PASS: closed-tab chat restores without an API key or session memory");
+
   await page.evaluate(() => {
     history.pushState({}, "", "/");
     document.dispatchEvent(new Event("yt-navigate-finish"));

@@ -110,6 +110,45 @@
     $(".body").scrollTop = $(".body").scrollHeight;
     return article;
   }
+  function showMessages(messages = []) {
+    chatLog.replaceChildren();
+    for (const message of messages) addMessage(message.role, message.text, message.citations, message.searched);
+    clearChat.hidden = !messages.length;
+    chatStatus.textContent = messages.at(-1)?.warning || "";
+  }
+  function showSnapshot(response) {
+    result = response.summary;
+    sessionId = response.sessionId;
+    chatForm.hidden = !sessionId;
+    $("h2").textContent = response.title;
+    $(".meta").textContent = `Transcript: ${response.language} · AI summaries can make mistakes`;
+    output.textContent = result;
+    output.classList.remove("error");
+    copy.hidden = regenerate.hidden = false;
+    retry.hidden = true;
+    showMessages(response.messages);
+  }
+  async function restoreCache(requestedId, requestGeneration) {
+    busy = true;
+    launch.disabled = true;
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "GET_CACHE", videoId: requestedId });
+      if (requestGeneration !== generation || getVideoId() !== requestedId) return;
+      if (!response?.ok) throw new Error(response?.error || "Could not restore saved chat.");
+      if (response.cached) showSnapshot(response);
+    } catch (error) {
+      if (requestGeneration !== generation || getVideoId() !== requestedId) return;
+      output.textContent = error.message;
+      retry.hidden = false;
+    } finally {
+      if (requestGeneration === generation) {
+        busy = false;
+        launch.disabled = false;
+        $(".label").textContent = result ? "Video summary" : "Summarize video";
+        updateChatControls();
+      }
+    }
+  }
   function getVideoId() {
     const url = new URL(location.href), id = url.searchParams.get("v");
     return url.pathname === "/watch" && /^[\w-]{11}$/.test(id ?? "") ? id : null;
@@ -137,6 +176,7 @@
     $(".meta").textContent = "Based on the transcript · Powered by OpenAI";
     output.textContent = "";
     copy.hidden = retry.hidden = regenerate.hidden = true;
+    if (next) restoreCache(next, generation);
   }
   async function run() {
     sync();
@@ -158,13 +198,7 @@
       if (requestGeneration !== generation || getVideoId() !== requestedId) return;
       if (!response?.ok) throw new Error(response?.error || "No response. Reload YouTube and try again.");
       if (response.videoId !== requestedId) throw new Error("The video changed. Try again.");
-      result = response.summary;
-      sessionId = response.sessionId;
-      chatForm.hidden = !sessionId;
-      $("h2").textContent = response.title;
-      $(".meta").textContent = `Transcript: ${response.language} · AI summaries can make mistakes`;
-      output.textContent = result;
-      copy.hidden = regenerate.hidden = false;
+      showSnapshot(response);
     } catch (error) {
       if (requestGeneration !== generation || getVideoId() !== requestedId) return;
       output.textContent = /Extension context invalidated/i.test(error.message) ? "The extension was reloaded. Refresh this YouTube page to reconnect." : error.message;
@@ -207,7 +241,7 @@
       const response = await chrome.runtime.sendMessage({ type: "CHAT", videoId, sessionId, question, searchWeb: useSearch });
       if (currentGeneration !== generation || getVideoId() !== requestedId) return;
       if (!response?.ok) throw new Error(response?.error || "No answer received. Try again.");
-      addMessage("assistant", response.answer.text, response.answer.citations, response.answer.searched);
+      showMessages(response.messages);
       chatInput.value = "";
       chatStatus.textContent = response.answer.warning || "";
       clearChat.hidden = false;
@@ -228,9 +262,8 @@
       const response = await chrome.runtime.sendMessage({ type: "CLEAR_CHAT", videoId, sessionId });
       if (currentGeneration !== generation) return;
       if (!response?.ok) throw new Error(response?.error || "Could not clear chat.");
-      chatLog.replaceChildren();
-      chatStatus.textContent = "";
-      clearChat.hidden = true;
+      sessionId = response.sessionId;
+      showMessages(response.messages);
     } catch (error) {
       if (currentGeneration === generation) chatStatus.textContent = error.message;
     } finally {

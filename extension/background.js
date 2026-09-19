@@ -11,15 +11,18 @@ const active = new Set();
 const sessionKey = tabId => `chat:${tabId}`;
 chrome.tabs.onRemoved.addListener(tabId => { chrome.storage.session.remove(sessionKey(tabId)).catch(() => {}); });
 
-async function saveSession(tabId, session) {
-  const key = sessionKey(tabId);
-  const sessions = Object.entries(await chrome.storage.session.get(null))
-    .filter(([name]) => name.startsWith("chat:") && name !== key)
-    .sort((a, b) => b[1].updatedAt - a[1].updatedAt);
-  // Bound memory usage even when many video tabs are left open.
-  const expired = sessions.filter(([, value], index) => index >= 11 || Date.now() - value.updatedAt > 7_200_000).map(([name]) => name);
-  if (expired.length) await chrome.storage.session.remove(expired);
-  await chrome.storage.session.set({ [key]: session });
+const activeVideos = new Set();
+const cacheKey = videoId => `video-chat:${videoId}`;
+async function saveCache(session) {
+  try { await chrome.storage.local.set({ [cacheKey(session.videoId)]: session }); }
+  catch { throw new Error("Could not save this video's chat. Chrome's local storage may be full. Clear chat on older videos to free space, then try again."); }
+}
+async function bindSession(tabId, documentId, session) {
+  await chrome.storage.session.set({ [sessionKey(tabId)]: { id: session.id, videoId: session.videoId, documentId } });
+}
+function snapshot(session) {
+  return { ok: true, videoId: session.videoId, sessionId: session.id, summary: session.summary,
+    title: session.transcript.title, language: session.transcript.language, messages: session.messages || [] };
 }
 
 async function handle(message, sender) {
@@ -36,23 +39,36 @@ async function handle(message, sender) {
   }
   if (message.videoId !== videoId) throw new Error("The video changed. Try again.");
   const tabId = sender.tab.id;
+  await storageReady;
+  if (message.type === "GET_CACHE") {
+    const session = (await chrome.storage.local.get(cacheKey(videoId)))[cacheKey(videoId)];
+    if (!session) return { ok: true, videoId, cached: false };
+    await bindSession(tabId, sender.documentId, session);
+    return { ...snapshot(session), cached: true };
+  }
+  if (activeVideos.has(videoId)) throw new Error("An AI request for this video is already running. Please wait and try again.");
   if (active.has(tabId)) throw new Error("An AI request is already running in this tab. Please wait.");
   active.add(tabId);
+  activeVideos.add(videoId);
   // Extension API activity keeps the worker alive during transcript extraction.
   const keepAlive = setInterval(() => chrome.runtime.getPlatformInfo().catch(() => {}), 20_000);
   try {
     await storageReady;
     if (message.type === "CHAT" || message.type === "CLEAR_CHAT") {
       const key = sessionKey(tabId);
-      const session = (await chrome.storage.session.get(key))[key];
-      if (!session || session.id !== message.sessionId || session.videoId !== videoId || session.documentId !== sender.documentId || Date.now() - session.updatedAt > 7_200_000) {
-        throw new Error("This chat has expired. Regenerate the summary to start a new conversation.");
+      const binding = (await chrome.storage.session.get(key))[key];
+      const session = (await chrome.storage.local.get(cacheKey(videoId)))[cacheKey(videoId)];
+      if (!session || session.id !== message.sessionId || binding?.id !== session.id || binding.videoId !== videoId || binding.documentId !== sender.documentId) {
+        throw new Error("This video's chat changed in another tab. Reload this page to restore the latest conversation.");
       }
       if (message.type === "CLEAR_CHAT") {
         session.history = [];
+        session.messages = [];
+        session.id = crypto.randomUUID();
         session.updatedAt = Date.now();
-        await saveSession(tabId, session);
-        return { ok: true, videoId };
+        await saveCache(session);
+        await bindSession(tabId, sender.documentId, session);
+        return snapshot(session);
       }
       const settings = await chrome.storage.local.get(["apiKey", "model", "systemPrompt"]);
       if (!settings.apiKey) throw new Error("Add your OpenAI API key in Settings, then try again.");
@@ -61,9 +77,11 @@ async function handle(message, sender) {
       const sources = [...new Set(answer.citations.map(citation => `${citation.title}: ${citation.url}`))];
       const rememberedAnswer = answer.text + (answer.warning ? `\n[${answer.warning}]` : "") + (sources.length ? `\nSources from this answer:\n${sources.join("\n")}` : "");
       session.history.push({ role: "user", content: message.question.trim() }, { role: "assistant", content: rememberedAnswer });
+      session.messages ||= [];
+      session.messages.push({ role: "user", text: message.question.trim() }, { role: "assistant", ...answer });
       session.updatedAt = Date.now();
-      await saveSession(tabId, session);
-      return { ok: true, videoId, answer };
+      await saveCache(session);
+      return { ...snapshot(session), answer };
     }
     const settings = await chrome.storage.local.get(["apiKey", "model", "systemPrompt"]);
     if (!settings.apiKey) throw new Error("Add your OpenAI API key in Settings, then try again.");
@@ -77,18 +95,19 @@ async function handle(message, sender) {
     const summary = await summarize(transcript, settings);
     if (videoIdFromUrl((await chrome.tabs.get(tabId)).url) !== videoId) throw new Error("The video changed. Try again.");
     const id = crypto.randomUUID();
-    await saveSession(tabId, {
-      id, videoId, documentId: sender.documentId, transcript, summary, history: [], updatedAt: Date.now()
-    });
-    return { ok: true, videoId, sessionId: id, summary, title: transcript.title, language: transcript.language };
+    const session = { id, videoId, transcript, summary, history: [], messages: [], updatedAt: Date.now() };
+    await saveCache(session);
+    await bindSession(tabId, sender.documentId, session);
+    return snapshot(session);
   } finally {
     clearInterval(keepAlive);
     active.delete(tabId);
+    activeVideos.delete(videoId);
   }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!["SUMMARIZE", "OPEN_SETTINGS", "CHAT", "CLEAR_CHAT"].includes(message?.type)) return false;
+  if (!["SUMMARIZE", "OPEN_SETTINGS", "CHAT", "CLEAR_CHAT", "GET_CACHE"].includes(message?.type)) return false;
   handle(message, sender).then(sendResponse, error => sendResponse({ ok: false, error: error.message || "Something went wrong. Reload YouTube and try again." }));
   return true;
 });

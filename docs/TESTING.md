@@ -71,3 +71,8 @@ OpenAI answers and web-search citations are simulated in these tests. No live pa
 The September 19 chat output-limit fix adds regression checks for reasoning-model budgets, visible partial answers, and empty or filtered incomplete responses. The browser suite verifies that a partial answer retains its citations and displays an incomplete-answer notice.
 
 Markdown browser coverage verifies headings, bold, italics, lists, quotes, fenced code, citation links, and rejection of unsafe HTML and links. The chat flow also checks that fc enables web search without selecting the checkbox.
+
+
+## Persistent per-video chat
+
+Browser checks cover restoring messages and citations after reload without an API call, continuing with restored model history, independent video caches, persistent Clear chat, fresh transcript extraction on Regenerate, and reopening a closed video's chat after session memory and the API key have been removed. Network responses remain simulated.
