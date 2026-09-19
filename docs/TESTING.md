@@ -4,7 +4,7 @@ Verified on Windows on September 14, 2026, using Node.js 24.15.0 and Playwright 
 
 ## Automated checks
 
-- **23 unit tests passed:** URL validation, transcript identity/size/emptiness, source/instruction separation, response parsing, refusals, incomplete outputs, HTTP errors, quota, network failures, timeouts, signed-caption URL restrictions, Unicode, timestamps, language ranking, native fallback, and navigation during extraction.
+- **31 unit tests passed:** URL validation, transcript identity/size/emptiness, source/instruction separation, response parsing, refusals, incomplete outputs, HTTP errors, quota, network failures, timeouts, signed-caption URL restrictions, Unicode, timestamps, language ranking, native fallback, navigation during extraction, and chat request/stream/citation handling.
 - **Browser integration checks passed:** a real unpacked extension runs its content script, service worker, injected main-world extractor, settings page, and clipboard action.
 - **Manifest and JavaScript checks passed.**
 - **Git whitespace check passed.**
@@ -59,3 +59,11 @@ The summary panel and settings page were visually inspected from browser screens
 Added checks for custom instructions replacing the default, blank-prompt fallback, oversized prompts, settings persistence after reopening, restoring defaults, and regenerating with the latest saved instructions. Desktop and narrow-window geometry checks verify that the video and summary do not overlap, and closing restores the normal player layout. The reading view was also inspected on a live YouTube watch page without an OpenAI request.
 
 The clean live browser profile showed YouTube’s cookie-consent overlay. Player and panel geometry and layout restoration were checked there; playback interaction under that overlay was not validated.
+
+## Transcript chat (v1.2, September 19, 2026)
+
+Added eight unit tests for full transcript/history context, explicit web-search requests, question and conversation limits, chunked UTF-8 streaming, incomplete stream rejection, safe citation offsets, API authentication, and request errors.
+
+The real-extension browser suite also verifies question submission with Enter, successive turns carrying conversation history, source links, trusted session storage, preserving a failed question for retry, clearing chat without another summary, and discarding late answers when navigating to another video. Chat screenshots were visually inspected.
+
+OpenAI answers and web-search citations are simulated in these tests. No live paid completion or web search was run, and model-specific web-search availability still depends on the user's selected model and API account.

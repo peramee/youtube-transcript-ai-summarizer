@@ -71,6 +71,14 @@ try {
       globalThis.testCalls.push({ url, body: JSON.parse(options.body) });
       const status = globalThis.testStatus;
       await new Promise(resolve => setTimeout(resolve, globalThis.testDelay));
+      if (JSON.parse(options.body).stream && status === 200) {
+        const web = Boolean(JSON.parse(options.body).tools);
+        const response = { status: "completed", output: [
+          ...(web ? [{ type: "web_search_call" }] : []),
+          { type: "message", content: [{ type: "output_text", text: "Practice daily. [1]", annotations: web ? [{ type: "url_citation", start_index: 16, end_index: 19, url: "https://example.org/evidence", title: "Source evidence" }] : [] }] }
+        ] };
+        return new Response("data: " + JSON.stringify({ type: "response.completed", response }) + "\n\n", { headers: { "Content-Type": "text/event-stream" } });
+      }
       return Response.json(status === 200 ? { status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: summary }] }] } : { error: { code: "invalid_api_key" } }, { status });
     };
   }, summary);
@@ -168,7 +176,43 @@ try {
   assert.ok(isolated, "Extension isolated world exists");
   const read = await client.send("Runtime.evaluate", { contextId: isolated.id, expression: 'chrome.storage.local.get("apiKey").then(() => "exposed").catch(() => "blocked")', awaitPromise: true, returnByValue: true });
   assert.equal(read.result.value, "blocked");
+  const sessionRead = await client.send("Runtime.evaluate", { contextId: isolated.id, expression: 'chrome.storage.session.get(null).then(() => "exposed").catch(() => "blocked")', awaitPromise: true, returnByValue: true });
+  assert.equal(sessionRead.result.value, "blocked");
   console.log("PASS: API key storage is blocked from the content-script world");
+
+  const question = page.getByRole("textbox", { name: "Ask about the transcript" });
+  await question.fill("Why practice every day?");
+  await question.press("Enter");
+  await page.locator(".chat-message.assistant").waitFor();
+  let chatRequest = await worker.evaluate(() => testCalls.at(-1).body);
+  assert.match(chatRequest.input[0].content, /clear learning goal/);
+  assert.equal(chatRequest.input.at(-1).content, "Why practice every day?");
+  assert.equal(chatRequest.tools, undefined);
+  await question.fill("Is this supported by evidence?");
+  await page.getByRole("checkbox", { name: "Search web" }).check();
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await page.getByRole("link", { name: "[Source evidence]", exact: true }).waitFor();
+  chatRequest = await worker.evaluate(() => testCalls.at(-1).body);
+  assert.ok(chatRequest.input.some(message => message.content === "Why practice every day?"));
+  assert.deepEqual(chatRequest.tools, [{ type: "web_search" }]);
+  assert.equal(await page.getByRole("link", { name: "[Source evidence]", exact: true }).getAttribute("href"), "https://example.org/evidence");
+  const cached = await worker.evaluate(async () => Object.values(await chrome.storage.session.get(null)).find(value => value.videoId === "abcdefghijk"));
+  assert.ok(cached.history.at(-1).content.includes("https://example.org/evidence"));
+  await page.screenshot({ path: "test-results/chat.png" });
+  await worker.evaluate(() => { globalThis.testStatus = 401; });
+  await question.fill("Keep my question if the request fails");
+  await question.press("Enter");
+  await waitText(page, ".chat-status", /key was rejected/);
+  assert.equal(await question.inputValue(), "Keep my question if the request fails");
+  assert.equal(await page.locator(".chat-message.user").count(), 2);
+  await worker.evaluate(() => { globalThis.testStatus = 200; });
+  await page.getByRole("button", { name: "Clear chat", exact: true }).click();
+  await page.waitForFunction(() => !document.querySelector("#youtube-brief-root").shadowRoot.querySelector(".chat-log").children.length);
+  await question.fill("A fresh question");
+  await question.press("Enter");
+  await page.locator(".chat-message.assistant").waitFor();
+  assert.equal((await worker.evaluate(() => testCalls.at(-1).body)).input.length, 3);
+  console.log("PASS: transcript chat, conversation memory, web citations, failure recovery, and clear chat");
 
   async function navigate(id) {
     await page.evaluate(id => {
@@ -178,7 +222,15 @@ try {
     }, id);
     await page.getByRole("button", { name: "Summarize video", exact: true }).waitFor();
   }
+  await worker.evaluate(() => { globalThis.testDelay = 1200; });
+  await question.fill("This answer should be discarded after navigation");
+  await question.press("Enter");
+  await waitText(page, ".chat-status", /Checking sources/);
   await navigate("zyxwvutsrqp");
+  await page.waitForTimeout(1500);
+  await worker.evaluate(() => { globalThis.testDelay = 0; });
+  assert.equal(await page.getByRole("form", { name: "Ask about this video" }).isVisible(), false);
+  assert.equal(await page.locator(".chat-message").count(), 0);
   captionMode = "empty";
   await page.getByRole("button", { name: "Summarize video", exact: true }).click();
   await waitText(page, ".summary", /Consistency matters/);

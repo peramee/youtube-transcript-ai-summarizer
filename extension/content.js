@@ -27,6 +27,20 @@
       .copy { background: #e5ebe0; color: #294b34; font-size: 12px; font-weight: 650; padding: 8px 12px; border-radius: 7px; }
       button:hover { filter: brightness(.93); }
       button:disabled { cursor: wait; opacity: .6; }
+      .chat-log { display: grid; gap: 16px; margin-top: 24px; }
+      .chat-message { border-top: 1px solid #dce2d7; padding-top: 14px; }
+      .chat-message strong { display: block; font-size: 11px; color: #526c58; margin-bottom: 6px; }
+      .chat-message p { margin: 0; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+      .chat-message.user { background: #eaf0e5; padding: 12px; border: 0; border-radius: 8px; }
+      .chat-message a { color: #245d3a; text-decoration: underline; }
+      .chat-form { flex-shrink: 0; border-top: 1px solid #dce2d7; padding: 12px 18px; }
+      .chat-entry { display: flex; gap: 8px; align-items: flex-end; }
+      .chat-input { flex: 1; width: 0; min-width: 0; resize: vertical; min-height: 44px; max-height: 110px; padding: 10px; border: 1px solid #cbd2c9; border-radius: 8px; background: white; color: #202822; font: inherit; font-size: 13px; line-height: 1.4; }
+      .send { border-radius: 8px; padding: 12px; color: white; background: #264e36; font-size: 12px; }
+      .chat-tools { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 7px; font-size: 11px; color: #526c58; }
+      .chat-tools label { display: flex; align-items: center; gap: 5px; }
+      .chat-status { font-size: 11px; line-height: 1.4; margin: 6px 0 0; color: #526c58; }
+      .chat-status:empty { display: none; }
       @media (max-width: 800px) {
         :host { right: 16px; bottom: 16px; }
         .panel { left: 16px; right: 16px; width: auto; top: calc(96px + min(56.25vw - 18px, 27vh)); bottom: 76px; }
@@ -37,7 +51,12 @@
     </style>
     <section class="panel" role="region" aria-label="Video summary" hidden>
       <header><span class="brand">YOUTUBE BRIEF</span><button class="close" aria-label="Close summary">×</button></header>
-      <div class="body"><h2>Your video, distilled.</h2><p class="meta">Based on the transcript · Powered by OpenAI</p><p class="summary" role="status" aria-live="polite"></p></div>
+      <div class="body"><h2>Your video, distilled.</h2><p class="meta">Based on the transcript · Powered by OpenAI</p><p class="summary" role="status" aria-live="polite"></p><div class="chat-log" role="log" aria-label="Conversation" aria-live="polite"></div></div>
+      <form class="chat-form" aria-label="Ask about this video" hidden>
+        <div class="chat-entry"><textarea class="chat-input" aria-label="Ask about the transcript" placeholder="Ask about the transcript…" rows="2" maxlength="4000"></textarea><button class="send" type="submit" disabled>Send</button></div>
+        <div class="chat-tools"><label title="Use OpenAI web search for external sources. Additional API charges may apply."><input class="search-web" type="checkbox">Search web</label><button class="subtle clear-chat" type="button" hidden>Clear chat</button></div>
+        <p class="chat-status" role="status" aria-live="polite"></p>
+      </form>
       <footer><button class="subtle settings">Settings</button><button class="subtle retry" hidden>Try again</button><button class="subtle regenerate" hidden>Regenerate</button><button class="copy" hidden>Copy summary</button></footer>
     </section>
     <button class="launch" aria-expanded="false"><span class="spark" aria-hidden="true">✧</span><span class="label">Summarize video</span></button>`;
@@ -45,7 +64,52 @@
   const $ = selector => shadow.querySelector(selector);
   const panel = $(".panel"), launch = $(".launch"), output = $(".summary"), copy = $(".copy"), retry = $(".retry");
   const regenerate = $(".regenerate");
+  const chatForm = $(".chat-form"), chatInput = $(".chat-input"), chatLog = $(".chat-log"), chatStatus = $(".chat-status"), send = $(".send"), clearChat = $(".clear-chat"), searchWeb = $(".search-web");
+  let sessionId = null;
   let videoId = null, generation = 0, busy = false, result = null;
+  function resetChat() {
+    sessionId = null;
+    chatForm.hidden = true;
+    chatLog.replaceChildren();
+    chatInput.value = "";
+    chatStatus.textContent = "";
+    clearChat.hidden = true;
+    searchWeb.checked = false;
+    updateChatControls();
+  }
+  function updateChatControls() {
+    send.disabled = busy || !chatInput.value.trim();
+    chatInput.readOnly = busy;
+    searchWeb.disabled = clearChat.disabled = regenerate.disabled = busy;
+  }
+  function addMessage(role, text, citations = [], searched = false) {
+    const article = document.createElement("article");
+    article.className = `chat-message ${role}`;
+    const label = document.createElement("strong");
+    label.textContent = role === "user" ? "You" : searched ? "AI · Web search" : "AI · No web search";
+    const paragraph = document.createElement("p");
+    let cursor = 0;
+    for (const citation of [...citations].sort((a, b) => a.start - b.start)) {
+      if (citation.start < cursor || citation.end > text.length) continue;
+      try {
+        if (!["http:", "https:"].includes(new URL(citation.url).protocol)) continue;
+      } catch { continue; }
+      paragraph.append(document.createTextNode(text.slice(cursor, citation.start)));
+      const link = document.createElement("a");
+      link.href = citation.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.title = citation.title;
+      link.textContent = `[${citation.title}]`;
+      paragraph.append(link);
+      cursor = citation.end;
+    }
+    paragraph.append(document.createTextNode(text.slice(cursor)));
+    article.append(label, paragraph);
+    chatLog.append(article);
+    $(".body").scrollTop = $(".body").scrollHeight;
+    return article;
+  }
   function getVideoId() {
     const url = new URL(location.href), id = url.searchParams.get("v");
     return url.pathname === "/watch" && /^[\w-]{11}$/.test(id ?? "") ? id : null;
@@ -65,6 +129,7 @@
     generation++;
     busy = false;
     result = null;
+    resetChat();
     setOpen(false);
     launch.disabled = false;
     $(".label").textContent = "Summarize video";
@@ -80,6 +145,7 @@
     const requestedId = videoId;
     busy = true;
     result = null;
+    resetChat();
     setOpen(true);
     launch.disabled = true;
     copy.hidden = retry.hidden = regenerate.hidden = true;
@@ -93,6 +159,8 @@
       if (!response?.ok) throw new Error(response?.error || "No response. Reload YouTube and try again.");
       if (response.videoId !== requestedId) throw new Error("The video changed. Try again.");
       result = response.summary;
+      sessionId = response.sessionId;
+      chatForm.hidden = !sessionId;
       $("h2").textContent = response.title;
       $(".meta").textContent = `Transcript: ${response.language} · AI summaries can make mistakes`;
       output.textContent = result;
@@ -105,6 +173,7 @@
     } finally {
       if (requestGeneration === generation) {
         busy = false;
+        updateChatControls();
         launch.disabled = false;
         $(".label").textContent = result ? "Video summary" : "Summarize video";
       }
@@ -113,6 +182,61 @@
   launch.addEventListener("click", () => result ? setOpen(panel.hidden) : run());
   retry.addEventListener("click", run);
   regenerate.addEventListener("click", run);
+  chatInput.addEventListener("input", updateChatControls);
+  chatInput.addEventListener("keydown", event => {
+    if (event.key === "Escape") return;
+    event.stopPropagation(); // Do not trigger YouTube shortcuts while typing.
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      if (!send.disabled) chatForm.requestSubmit();
+    }
+  });
+  chatInput.addEventListener("keyup", event => event.stopPropagation());
+  chatForm.addEventListener("submit", async event => {
+    event.preventDefault();
+    sync();
+    if (busy || !sessionId || !chatInput.value.trim()) return;
+    const currentGeneration = generation, requestedId = videoId;
+    const question = chatInput.value.trim();
+    const useSearch = searchWeb.checked;
+    busy = true;
+    updateChatControls();
+    chatStatus.textContent = useSearch ? "Checking sources…" : "Thinking…";
+    const pending = addMessage("user", question);
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "CHAT", videoId, sessionId, question, searchWeb: useSearch });
+      if (currentGeneration !== generation || getVideoId() !== requestedId) return;
+      if (!response?.ok) throw new Error(response?.error || "No answer received. Try again.");
+      addMessage("assistant", response.answer.text, response.answer.citations, response.answer.searched);
+      chatInput.value = "";
+      chatStatus.textContent = "";
+      clearChat.hidden = false;
+    } catch (error) {
+      if (currentGeneration !== generation || getVideoId() !== requestedId) return;
+      pending.remove();
+      chatStatus.textContent = error.message || "Could not send your question. Try again.";
+    } finally {
+      if (currentGeneration === generation) { busy = false; updateChatControls(); }
+    }
+  });
+  clearChat.addEventListener("click", async () => {
+    if (busy || !sessionId) return;
+    const currentGeneration = generation;
+    busy = true;
+    updateChatControls();
+    try {
+      const response = await chrome.runtime.sendMessage({ type: "CLEAR_CHAT", videoId, sessionId });
+      if (currentGeneration !== generation) return;
+      if (!response?.ok) throw new Error(response?.error || "Could not clear chat.");
+      chatLog.replaceChildren();
+      chatStatus.textContent = "";
+      clearChat.hidden = true;
+    } catch (error) {
+      if (currentGeneration === generation) chatStatus.textContent = error.message;
+    } finally {
+      if (currentGeneration === generation) { busy = false; updateChatControls(); }
+    }
+  });
   $(".close").addEventListener("click", () => { setOpen(false); launch.focus(); });
   shadow.addEventListener("keydown", event => {
     if (event.key === "Escape") { setOpen(false); launch.focus(); event.stopPropagation(); }
