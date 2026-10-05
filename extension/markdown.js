@@ -45,6 +45,15 @@ globalThis.renderChatMarkdown = function (container, text, citations = []) {
     }
     parent.append(document.createTextNode(value.slice(end)));
   }
+  function tableCells(line) {
+    const escaped = line.replace(/\\\|/g, "\uE002");
+    const trimmed = escaped.trim().replace(/^\|/, "").replace(/\|$/, "");
+    return trimmed.split("|").map(cell => cell.replace(/\uE002/g, "|").trim());
+  }
+  function isTableDivider(line) {
+    const cells = tableCells(line);
+    return cells.length > 1 && cells.every(cell => /^:?-{3,}:?$/.test(cell));
+  }
   const lines = source.replace(/\r\n?/g, "\n").split("\n");
   let paragraph = null;
   let lists = [];
@@ -59,6 +68,29 @@ globalThis.renderChatMarkdown = function (container, text, citations = []) {
       code.textContent = body.join("\n"); pre.append(code); container.append(pre); continue;
     }
     const heading = line.match(/^ {0,3}(#{1,6})\s+(.+?)(?:\s+#+)?$/);
+    if (line.includes("|") && i + 1 < lines.length && isTableDivider(lines[i + 1])) {
+      paragraph = null; lists = [];
+      const headers = tableCells(line);
+      const alignments = tableCells(lines[++i]).map(cell => cell.startsWith(":") ? cell.endsWith(":") ? "center" : "left" : cell.endsWith(":") ? "right" : "left");
+      const wrapper = document.createElement("div"); wrapper.className = "chat-table-wrap";
+      const table = document.createElement("table");
+      const thead = document.createElement("thead"), headerRow = document.createElement("tr");
+      headers.forEach((cell, index) => {
+        const th = document.createElement("th"); th.scope = "col"; th.style.textAlign = alignments[index] || "left"; inline(th, cell); headerRow.append(th);
+      });
+      thead.append(headerRow); table.append(thead);
+      const tbody = document.createElement("tbody");
+      while (i + 1 < lines.length && lines[i + 1].includes("|") && lines[i + 1].trim()) {
+        const cells = tableCells(lines[++i]), row = document.createElement("tr");
+        headers.forEach((_, index) => {
+          const td = document.createElement("td"); td.style.textAlign = alignments[index] || "left";
+          inline(td, cells[index] || ""); row.append(td);
+        });
+        tbody.append(row);
+      }
+      table.append(tbody); wrapper.append(table); container.append(wrapper);
+      continue;
+    }
     const item = line.match(/^([ \t]*)(?:([-+*])|(\d+)[.)])[ \t]+(.+)$/);
     const quote = line.match(/^\s*>\s?(.*)$/);
     if (heading || quote || /^\s*(?:---+|\*\*\*+|___+)\s*$/.test(line)) {

@@ -45,6 +45,11 @@
       .chat-answer pre { overflow-x: auto; background: #e5ebe0; padding: 12px; border-radius: 6px; white-space: pre; }
       .chat-answer pre code { padding: 0; }
       .chat-answer hr { border: 0; border-top: 1px solid #dce2d7; margin: 16px 0; }
+      .chat-table-wrap { max-width: 100%; overflow-x: auto; margin: 14px 0; border: 1px solid #dce2d7; border-radius: 7px; }
+      .chat-answer table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.55; }
+      .chat-answer th, .chat-answer td { padding: 9px 10px; border-bottom: 1px solid #dce2d7; vertical-align: top; }
+      .chat-answer th { background: #eaf0e5; font-weight: 700; }
+      .chat-answer tr:last-child td { border-bottom: 0; }
       .chat-message.user { background: #eaf0e5; padding: 12px; border: 0; border-radius: 8px; }
       .chat-message a { color: #245d3a; text-decoration: underline; }
       .chat-form { flex-shrink: 0; border-top: 1px solid #dce2d7; padding: 12px 18px; }
