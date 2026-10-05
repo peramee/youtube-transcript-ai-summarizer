@@ -117,4 +117,4 @@ See [validation results](docs/TESTING.md) for coverage and live verification lim
 - [Playwright extension testing](https://playwright.dev/docs/chrome-extensions)
 
 
-Chat replies support Markdown headings, bold, italics, lists, quotes, code blocks, and safe links. Type **fc** to fact-check the video's main claims with timestamps and web sources; this shortcut automatically enables web search for that turn, with the same API usage charges as Search web.
+Chat replies support Markdown headings, bold, italics, lists, tables, quotes, code blocks, and safe links. Click **Fact-check video** beside **Copy summary** to check the video's main claims with timestamps and web sources. It automatically uses web search for that turn; API usage charges may apply.

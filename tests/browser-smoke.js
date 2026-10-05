@@ -234,13 +234,13 @@ try {
   await page.locator(".body").evaluate(node => { node.scrollTop = 0; });
   await page.screenshot({ path: "test-results/preview.png" });
   await page.setViewportSize({ width: 1280, height: 850 });
-  await question.fill("fc");
   await worker.evaluate(() => { globalThis.testPartial = true; });
-  await page.getByRole("button", { name: "Send", exact: true }).click();
+  await page.getByRole("button", { name: "Fact-check video", exact: true }).click();
   await page.getByRole("link", { name: "[Source evidence]", exact: true }).waitFor();
   await waitText(page, ".chat-status", /may be incomplete/);
   await worker.evaluate(() => { globalThis.testPartial = false; });
   chatRequest = await worker.evaluate(() => testCalls.at(-1).body);
+  assert.match(chatRequest.input.at(-1).content, /Fact-check the video's main verifiable claims/);
   assert.ok(chatRequest.input.some(message => message.content === "Why practice every day?"));
   assert.deepEqual(chatRequest.tools, [{ type: "web_search" }]);
   assert.equal(await page.getByRole("link", { name: "[Source evidence]", exact: true }).getAttribute("href"), "https://example.org/evidence");

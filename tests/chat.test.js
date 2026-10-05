@@ -88,12 +88,8 @@ test("unsupported web search and network errors have actionable messages", async
 });
 
 
-test("fc shortcut requests a sourced video fact-check without the checkbox", () => {
-  for (const question of ["fc", " FC "]) {
-    const request = makeChatRequest(session, question, {});
-    assert.deepEqual(request.tools, [{ type: "web_search" }]);
-    assert.match(request.instructions, /fact-check the video's main verifiable claims/);
-    assert.match(request.instructions, /Markdown headings/);
-  }
-  assert.equal(makeChatRequest(session, "What does fc mean?", {}).tools, undefined);
+test("fc is an ordinary chat question unless web search is selected", () => {
+  assert.equal(makeChatRequest(session, "fc", {}).tools, undefined);
+  assert.deepEqual(makeChatRequest(session, "Fact-check this claim", {}, true).tools, [{ type: "web_search" }]);
+  assert.match(makeChatRequest(session, "Format this", {}).instructions, /Markdown headings/);
 });

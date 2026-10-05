@@ -72,17 +72,17 @@
       <header><span class="brand">YOUTUBE BRIEF</span><button class="close" aria-label="Close summary">×</button></header>
       <div class="body"><h2>Your video, distilled.</h2><p class="meta">Based on the transcript · Powered by OpenAI</p><p class="summary" role="status" aria-live="polite"></p><div class="chat-log" role="log" aria-label="Conversation" aria-live="polite"></div></div>
       <form class="chat-form" aria-label="Ask about this video" hidden>
-        <div class="chat-entry"><textarea class="chat-input" aria-label="Ask about the transcript" placeholder="Ask a question, or type fc to fact-check…" rows="2" maxlength="4000"></textarea><button class="send" type="submit" disabled>Send</button></div>
+        <div class="chat-entry"><textarea class="chat-input" aria-label="Ask about the transcript" placeholder="Ask a question about the transcript…" rows="2" maxlength="4000"></textarea><button class="send" type="submit" disabled>Send</button></div>
         <div class="chat-tools"><label title="Use OpenAI web search for external sources. Additional API charges may apply."><input class="search-web" type="checkbox">Search web</label><button class="subtle clear-chat" type="button" hidden>Clear chat</button></div>
         <p class="chat-status" role="status" aria-live="polite"></p>
       </form>
-      <footer><button class="subtle settings">Settings</button><button class="subtle retry" hidden>Try again</button><button class="subtle regenerate" hidden>Regenerate</button><button class="copy" hidden>Copy summary</button></footer>
+      <footer><button class="subtle settings">Settings</button><button class="subtle retry" hidden>Try again</button><button class="subtle regenerate" hidden>Regenerate</button><button class="copy" hidden>Copy summary</button><button class="subtle fact-check" hidden title="Check the video's main factual claims using web sources">Fact-check video</button></footer>
     </section>
     <button class="launch" aria-expanded="false"><span class="spark" aria-hidden="true">✧</span><span class="label">Summarize video</span></button>`;
   document.documentElement.append(host);
   const $ = selector => shadow.querySelector(selector);
   const panel = $(".panel"), launch = $(".launch"), output = $(".summary"), copy = $(".copy"), retry = $(".retry");
-  const regenerate = $(".regenerate");
+  const regenerate = $(".regenerate"), factCheck = $(".fact-check");
   const chatForm = $(".chat-form"), chatInput = $(".chat-input"), chatLog = $(".chat-log"), chatStatus = $(".chat-status"), send = $(".send"), clearChat = $(".clear-chat"), searchWeb = $(".search-web");
   let sessionId = null;
   let videoId = null, generation = 0, busy = false, result = null;
@@ -99,7 +99,7 @@
   function updateChatControls() {
     send.disabled = busy || !chatInput.value.trim();
     chatInput.readOnly = busy;
-    searchWeb.disabled = clearChat.disabled = regenerate.disabled = busy;
+    searchWeb.disabled = clearChat.disabled = regenerate.disabled = factCheck.disabled = busy;
   }
   function addMessage(role, text, citations = [], searched = false) {
     const article = document.createElement("article");
@@ -130,7 +130,7 @@
     $(".meta").textContent = `Transcript: ${response.language} · AI summaries can make mistakes`;
     output.textContent = result;
     output.classList.remove("error");
-    copy.hidden = regenerate.hidden = false;
+    copy.hidden = regenerate.hidden = factCheck.hidden = false;
     retry.hidden = true;
     showMessages(response.messages);
   }
@@ -181,7 +181,7 @@
     $("h2").textContent = "Your video, distilled.";
     $(".meta").textContent = "Based on the transcript · Powered by OpenAI";
     output.textContent = "";
-    copy.hidden = retry.hidden = regenerate.hidden = true;
+    copy.hidden = retry.hidden = regenerate.hidden = factCheck.hidden = true;
     if (next) restoreCache(next, generation);
   }
   async function run() {
@@ -194,7 +194,7 @@
     resetChat();
     setOpen(true);
     launch.disabled = true;
-    copy.hidden = retry.hidden = regenerate.hidden = true;
+    copy.hidden = retry.hidden = regenerate.hidden = factCheck.hidden = true;
     copy.textContent = "Copy summary";
     output.classList.remove("error");
     output.textContent = "Reading the video transcript…";
@@ -232,13 +232,10 @@
     }
   });
   chatInput.addEventListener("keyup", event => event.stopPropagation());
-  chatForm.addEventListener("submit", async event => {
-    event.preventDefault();
+  async function askChat(question, useSearch) {
     sync();
-    if (busy || !sessionId || !chatInput.value.trim()) return;
+    if (busy || !sessionId || !question.trim()) return;
     const currentGeneration = generation, requestedId = videoId;
-    const question = chatInput.value.trim();
-    const useSearch = searchWeb.checked || question.toLowerCase() === "fc";
     busy = true;
     updateChatControls();
     chatStatus.textContent = useSearch ? "Checking sources…" : "Thinking…";
@@ -248,7 +245,7 @@
       if (currentGeneration !== generation || getVideoId() !== requestedId) return;
       if (!response?.ok) throw new Error(response?.error || "No answer received. Try again.");
       showMessages(response.messages);
-      chatInput.value = "";
+      if (chatInput.value.trim() === question) chatInput.value = "";
       chatStatus.textContent = response.answer.warning || "";
       clearChat.hidden = false;
     } catch (error) {
@@ -258,6 +255,13 @@
     } finally {
       if (currentGeneration === generation) { busy = false; updateChatControls(); }
     }
+  }
+  chatForm.addEventListener("submit", event => {
+    event.preventDefault();
+    askChat(chatInput.value.trim(), searchWeb.checked);
+  });
+  factCheck.addEventListener("click", () => {
+    askChat("Fact-check the video's main verifiable claims using the full transcript. Identify each claim with its timestamp, assess supporting and conflicting evidence, give a clear verdict with uncertainty, cite sources, and mark claims that cannot be verified.", true);
   });
   clearChat.addEventListener("click", async () => {
     if (busy || !sessionId) return;
