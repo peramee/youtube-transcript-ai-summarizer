@@ -261,7 +261,7 @@
     askChat(chatInput.value.trim(), searchWeb.checked);
   });
   factCheck.addEventListener("click", () => {
-    askChat("Fact-check the video's main verifiable claims using the full transcript. Identify each claim with its timestamp, assess supporting and conflicting evidence, give a clear verdict with uncertainty, cite sources, and mark claims that cannot be verified.", true);
+    askChat("Fact-check the video's main verifiable claims using the full transcript. Create a table with columns for the video's claim and then your verdict of that claim. Your output should be that table as well as a short bottom line section. Give a clear verdict with uncertainty, cite sources, and mark claims that cannot be verified.", true);
   });
   clearChat.addEventListener("click", async () => {
     if (busy || !sessionId) return;
