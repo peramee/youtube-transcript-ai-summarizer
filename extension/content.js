@@ -24,7 +24,7 @@
       .summary.error { color: #9a3030; }
       footer { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #dce2d7; padding: 12px 18px; }
       .subtle { background: transparent; padding: 7px 4px; font-size: 12px; color: #4d6252; }
-      .copy { background: #e5ebe0; color: #294b34; font-size: 12px; font-weight: 650; padding: 8px 12px; border-radius: 7px; }
+      .primary { background: #e5ebe0; color: #294b34; font-size: 12px; font-weight: 650; padding: 8px 12px; border-radius: 7px; }
       button:hover { filter: brightness(.93); }
       button:disabled { cursor: wait; opacity: .6; }
       .chat-log { display: grid; gap: 16px; margin-top: 24px; }
@@ -76,12 +76,12 @@
         <div class="chat-tools"><label title="Use OpenAI web search for external sources. Additional API charges may apply."><input class="search-web" type="checkbox">Search web</label><button class="subtle clear-chat" type="button" hidden>Clear chat</button></div>
         <p class="chat-status" role="status" aria-live="polite"></p>
       </form>
-      <footer><button class="subtle settings">Settings</button><button class="subtle retry" hidden>Try again</button><button class="subtle regenerate" hidden>Regenerate</button><button class="copy fact-check" hidden title="Check the video's main factual claims using web sources">Fact-check video</button><button class="copy" hidden>Copy summary</button></footer>
+      <footer><button class="subtle settings">Settings</button><button class="subtle retry" hidden>Try again</button><button class="subtle regenerate" hidden>Regenerate</button><button class="primary fact-check" hidden title="Check the video's main factual claims using web sources">Fact-check video</button></footer>
     </section>
     <button class="launch" aria-expanded="false"><span class="spark" aria-hidden="true">✧</span><span class="label">Summarize video</span></button>`;
   document.documentElement.append(host);
   const $ = selector => shadow.querySelector(selector);
-  const panel = $(".panel"), launch = $(".launch"), output = $(".summary"), copy = $(".copy"), retry = $(".retry");
+  const panel = $(".panel"), launch = $(".launch"), output = $(".summary"), retry = $(".retry");
   const regenerate = $(".regenerate"), factCheck = $(".fact-check");
   const chatForm = $(".chat-form"), chatInput = $(".chat-input"), chatLog = $(".chat-log"), chatStatus = $(".chat-status"), send = $(".send"), clearChat = $(".clear-chat"), searchWeb = $(".search-web");
   let sessionId = null;
@@ -130,7 +130,7 @@
     $(".meta").textContent = `Transcript: ${response.language} · AI summaries can make mistakes`;
     output.textContent = result;
     output.classList.remove("error");
-    copy.hidden = regenerate.hidden = factCheck.hidden = false;
+    regenerate.hidden = factCheck.hidden = false;
     retry.hidden = true;
     showMessages(response.messages);
   }
@@ -181,7 +181,7 @@
     $("h2").textContent = "Your video, distilled.";
     $(".meta").textContent = "Based on the transcript · Powered by OpenAI";
     output.textContent = "";
-    copy.hidden = retry.hidden = regenerate.hidden = factCheck.hidden = true;
+    retry.hidden = regenerate.hidden = factCheck.hidden = true;
     if (next) restoreCache(next, generation);
   }
   async function run() {
@@ -194,8 +194,7 @@
     resetChat();
     setOpen(true);
     launch.disabled = true;
-    copy.hidden = retry.hidden = regenerate.hidden = factCheck.hidden = true;
-    copy.textContent = "Copy summary";
+    retry.hidden = regenerate.hidden = factCheck.hidden = true;
     output.classList.remove("error");
     output.textContent = "Reading the video transcript…";
     $(".label").textContent = "Summarizing…";
@@ -289,13 +288,6 @@
       const response = await chrome.runtime.sendMessage({ type: "OPEN_SETTINGS" });
       if (!response?.ok) throw new Error(response?.error);
     } catch { output.textContent = "Open settings from the YouTube Brief icon in Chrome’s toolbar. Reload YouTube if the extension was updated."; }
-  });
-  copy.addEventListener("click", async () => {
-    try {
-      await navigator.clipboard.writeText(result);
-      copy.textContent = "Copied";
-      setTimeout(() => { copy.textContent = "Copy summary"; }, 1800);
-    } catch { copy.textContent = "Select text to copy"; }
   });
   chrome.runtime.onMessage.addListener(message => {
     if (message?.type === "SUMMARY_PROGRESS" && busy && message.videoId === videoId && getVideoId() === videoId) output.textContent = message.text;

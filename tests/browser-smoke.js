@@ -151,9 +151,6 @@ try {
   assert.notEqual(await page.locator("#movie_player").evaluate(node => getComputedStyle(node).position), "fixed");
   await page.getByRole("button", { name: "Video summary", exact: true }).click();
   assert.equal(await worker.evaluate(() => testCalls.length), 1);
-  await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin: "https://www.youtube.com" });
-  await page.getByRole("button", { name: "Copy summary" }).click();
-  assert.equal((await page.evaluate(() => navigator.clipboard.readText())).replace(/\r\n/g, "\n"), summary);
   await page.screenshot({ path: "test-results/summary.png" });
   await page.setViewportSize({ width: 390, height: 844 });
   const mobilePanel = await page.getByRole("region", { name: "Video summary" }).boundingBox();

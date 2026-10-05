@@ -21,7 +21,7 @@ No `npm install`, compilation, YouTube API key, or Google sign-in is required to
 
 The panel fills about one-third of the tab and nearly its full height, with the video on the left in the normal page flow. The video scrolls away as you move down to comments; the summary remains fixed on screen. Narrow windows place the video above the summary. Closing the panel restores the original player layout.
 
-By default, the panel shows an overview, key points, and a takeaway in English. **Copy summary** copies plain text. Closing and reopening the panel reuses the summary without another request. Switching videos clears it; refreshing the page lets you generate a new summary.
+By default, the panel shows an overview, key points, and a takeaway in English. Closing and reopening the panel reuses the summary without another request. Switching videos clears it; refreshing the page lets you generate a new summary.
 
 **Settings** opens the saved-key, model, and **System prompt** options. Edit the prompt to control the focus, language, tone, format, and detail level, then click **Save settings**. Your prompt replaces the default instructions and is saved locally; it is sent to OpenAI separately from the transcript. A blank prompt uses the default, and **Restore default prompt** fills it back in (click Save to apply).
 
@@ -117,4 +117,4 @@ See [validation results](docs/TESTING.md) for coverage and live verification lim
 - [Playwright extension testing](https://playwright.dev/docs/chrome-extensions)
 
 
-Chat replies support Markdown headings, bold, italics, lists, tables, quotes, code blocks, and safe links. Click **Fact-check video** beside **Copy summary** to check the video's main claims with timestamps and web sources. It automatically uses web search for that turn; API usage charges may apply.
+Chat replies support Markdown headings, bold, italics, lists, tables, quotes, code blocks, and safe links. Click **Fact-check video** in the summary panel to check the video's main claims with timestamps and web sources. It automatically uses web search for that turn; API usage charges may apply.
