@@ -76,7 +76,7 @@
         <div class="chat-tools"><label title="Use OpenAI web search for external sources. Additional API charges may apply."><input class="search-web" type="checkbox">Search web</label><button class="subtle clear-chat" type="button" hidden>Clear chat</button></div>
         <p class="chat-status" role="status" aria-live="polite"></p>
       </form>
-      <footer><button class="subtle settings">Settings</button><button class="subtle retry" hidden>Try again</button><button class="subtle regenerate" hidden>Regenerate</button><button class="copy" hidden>Copy summary</button><button class="subtle fact-check" hidden title="Check the video's main factual claims using web sources">Fact-check video</button></footer>
+      <footer><button class="subtle settings">Settings</button><button class="subtle retry" hidden>Try again</button><button class="subtle regenerate" hidden>Regenerate</button><button class="copy fact-check" hidden title="Check the video's main factual claims using web sources">Fact-check video</button><button class="copy" hidden>Copy summary</button></footer>
     </section>
     <button class="launch" aria-expanded="false"><span class="spark" aria-hidden="true">✧</span><span class="label">Summarize video</span></button>`;
   document.documentElement.append(host);
